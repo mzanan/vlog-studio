@@ -3,9 +3,9 @@ import path from 'node:path';
 import { mkdir, readFile, readdir, stat } from 'node:fs/promises';
 import { prisma } from '@/lib/db';
 import { isValidEdl } from '@/lib/edl';
-import { isValidMusicBlocks } from '@/lib/music';
 import { projectDir } from '@/lib/paths';
-import { buildVlogProps, renderVlog } from '@/lib/render';
+import { buildVlogProps } from '@/lib/render-props';
+import { renderVlog } from '@/lib/render';
 
 export const maxDuration = 1800;
 export const dynamic = 'force-dynamic';
@@ -42,7 +42,6 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
   });
   if (!project) return Response.json({ error: 'project not found' }, { status: 404 });
   if (!isValidEdl(project.edl)) return Response.json({ error: 'project sin EDL' }, { status: 409 });
-  const blocks = isValidMusicBlocks(project.musicBlocks) ? project.musicBlocks : [];
 
   const protocol = req.headers.get('x-forwarded-proto') ?? 'http';
   const host = req.headers.get('host') ?? 'localhost:3000';
@@ -52,7 +51,6 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
     const props = await buildVlogProps({
       projectId,
       edl: project.edl,
-      musicBlocks: blocks,
       clips: project.clips,
       baseUrl,
     });

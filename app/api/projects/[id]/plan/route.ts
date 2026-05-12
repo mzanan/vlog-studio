@@ -2,7 +2,9 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { Prisma } from '@/lib/generated/prisma/client';
 import { generateEdl, currentProvider, buildManualPrompt, ClipForPlanning } from '@/lib/llm';
-import { Edl, isValidEdl } from '@/lib/edl';
+import { LlmEdl, PlanInput, resolveLlmEdl } from '@/lib/llm/prompts';
+import { isValidEdl } from '@/lib/edl';
+import { sampleUserVoiceStyle } from '@/lib/voice-style';
 
 async function loadPlanInput(projectId: string) {
   const project = await prisma.project.findUnique({
@@ -32,14 +34,16 @@ async function loadPlanInput(projectId: string) {
     transcript: c.segments.map((s) => s.text).join(' '),
   }));
 
-  return {
-    project,
-    input: {
-      intent: project.intent ?? '',
-      targetDurationSec: project.targetDuration ?? null,
-      clips,
-    },
+  const voiceStyleSamples = await sampleUserVoiceStyle(projectId);
+
+  const input: PlanInput = {
+    intent: project.intent ?? '',
+    targetDurationSec: project.targetDuration ?? null,
+    clips,
+    voiceStyleSamples,
   };
+
+  return { project, input };
 }
 
 export async function GET(req: NextRequest, ctx: RouteContext<'/api/projects/[id]/plan'>) {
@@ -79,31 +83,33 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/projects/[
   const { id: projectId } = await ctx.params;
   const body = await req.json();
 
-  let edl: Edl | null = null;
+  // Path 1: ya viene un Edl v2 válido (UI edit guardando cambios).
   if (isValidEdl(body?.edl)) {
-    edl = body.edl;
-  } else if (typeof body?.rawJson === 'string') {
+    await prisma.project.update({
+      where: { id: projectId },
+      data: { edl: body.edl as unknown as Prisma.InputJsonValue },
+    });
+    return Response.json({ edl: body.edl });
+  }
+
+  // Path 2: paste manual de LlmEdl desde Claude Code → resolver acá.
+  if (typeof body?.rawJson === 'string') {
     try {
-      const parsed = JSON.parse(body.rawJson);
-      const project = await prisma.project.findUnique({ where: { id: projectId } });
-      const candidate: Edl = {
-        segments: parsed.segments,
-        musicHints: parsed.musicHints,
-        intent: project?.intent ?? '',
-        targetDurationSec: project?.targetDuration ?? null,
-        generatedAt: new Date().toISOString(),
-      };
-      if (isValidEdl(candidate)) edl = candidate;
-    } catch {
-      // fallthrough to 400 below
+      const llm = JSON.parse(body.rawJson) as LlmEdl;
+      const loaded = await loadPlanInput(projectId);
+      if ('error' in loaded) return Response.json({ error: loaded.error }, { status: loaded.status });
+      const edl = resolveLlmEdl(llm, loaded.input);
+      if (!isValidEdl(edl)) return Response.json({ error: 'JSON manual no produjo un EDL válido' }, { status: 400 });
+      await prisma.project.update({
+        where: { id: projectId },
+        data: { edl: edl as unknown as Prisma.InputJsonValue },
+      });
+      return Response.json({ edl });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'JSON inválido';
+      return Response.json({ error: message }, { status: 400 });
     }
   }
 
-  if (!edl) return Response.json({ error: 'EDL inválido' }, { status: 400 });
-
-  await prisma.project.update({
-    where: { id: projectId },
-    data: { edl: edl as unknown as Prisma.InputJsonValue },
-  });
-  return Response.json({ edl });
+  return Response.json({ error: 'EDL inválido' }, { status: 400 });
 }

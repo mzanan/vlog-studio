@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { isValidEdl } from '@/lib/edl';
-import { isValidMusicBlocks } from '@/lib/music';
 import { buildVlogProps } from '@/lib/render-props';
 
 export const dynamic = 'force-dynamic';
@@ -16,7 +15,6 @@ export async function GET(req: NextRequest, ctx: RouteContext<'/api/projects/[id
   if (!project) return Response.json({ error: 'project not found' }, { status: 404 });
   if (!isValidEdl(project.edl)) return Response.json({ error: 'sin EDL' }, { status: 409 });
 
-  const blocks = isValidMusicBlocks(project.musicBlocks) ? project.musicBlocks : [];
   const protocol = req.headers.get('x-forwarded-proto') ?? 'http';
   const host = req.headers.get('host') ?? 'localhost:3000';
   const baseUrl = `${protocol}://${host}`;
@@ -24,7 +22,6 @@ export async function GET(req: NextRequest, ctx: RouteContext<'/api/projects/[id
   const props = await buildVlogProps({
     projectId,
     edl: project.edl,
-    musicBlocks: blocks,
     clips: project.clips,
     baseUrl,
   });

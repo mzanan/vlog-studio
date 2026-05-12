@@ -1,9 +1,8 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Paper, ScrollArea, Stack, Text } from '@mantine/core';
-import { Edl, EdlSegment } from '@/lib/edl';
-import { MusicBlock } from '@/lib/music';
+import { Paper, ScrollArea, Stack } from '@mantine/core';
+import { Edl, EdlSegment, segmentDurationMs } from '@/lib/edl';
 import { ClipMeta } from './Editor';
 import { VideoTrack } from './VideoTrack';
 import { MusicTrack } from './MusicTrack';
@@ -12,23 +11,16 @@ import { VoTrack } from './VoTrack';
 export const PX_PER_SEC = 50;
 export const TRACK_HEIGHT = 64;
 
-export function durationMs(seg: EdlSegment): number {
-  if (seg.kind === 'clip') return seg.outMs - seg.inMs;
-  return seg.durationEstimateMs;
-}
-
 export type SegmentLayout = { idx: number; seg: EdlSegment; startMs: number; widthPx: number };
 
 export function Timeline({
   projectId,
   edl,
-  musicBlocks,
   clips,
   onChanged,
 }: {
   projectId: string;
   edl: Edl;
-  musicBlocks: MusicBlock[];
   clips: ClipMeta[];
   onChanged: () => void;
 }) {
@@ -36,14 +28,14 @@ export function Timeline({
     const out: SegmentLayout[] = [];
     let startMs = 0;
     edl.segments.forEach((seg, idx) => {
-      const dms = durationMs(seg);
+      const dms = segmentDurationMs(seg);
       out.push({ idx, seg, startMs, widthPx: (dms / 1000) * PX_PER_SEC });
       startMs += dms;
     });
     return out;
   }, [edl.segments]);
 
-  const totalMs = layout.reduce((acc, l) => acc + l.widthPx / PX_PER_SEC * 1000, 0);
+  const totalMs = layout.reduce((acc, l) => acc + segmentDurationMs(l.seg), 0);
   const totalWidthPx = Math.max(600, (totalMs / 1000) * PX_PER_SEC + 40);
 
   const clipsLookup = useMemo(() => Object.fromEntries(clips.map((c) => [c.id, c])), [clips]);
@@ -60,14 +52,13 @@ export function Timeline({
             <TrackRow label="Música">
               <MusicTrack
                 projectId={projectId}
-                layout={layout}
-                blocks={musicBlocks}
-                totalWidthPx={totalWidthPx}
+                sections={edl.music.sections}
+                totalMs={totalMs}
                 onChanged={onChanged}
               />
             </TrackRow>
             <TrackRow label="Voz">
-              <VoTrack projectId={projectId} layout={layout} onChanged={onChanged} />
+              <VoTrack cues={edl.voiceover.cues} totalMs={totalMs} />
             </TrackRow>
           </Stack>
         </ScrollArea>

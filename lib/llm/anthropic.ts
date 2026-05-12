@@ -1,10 +1,10 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { Edl, isValidEdl } from '../edl';
-import { PLANNER_SYSTEM, PlanInput, buildUserMessage } from './prompts';
+import { Edl } from '../edl';
+import { LlmEdl, PLANNER_SYSTEM, PlanInput, buildUserMessage, resolveLlmEdl } from './prompts';
 
 const EDL_TOOL: Anthropic.Tool = {
   name: 'emit_edl',
-  description: 'Devuelve el Edit Decision List final.',
+  description: 'Devuelve el Edit Decision List intermedio (segmentIdx-based, el server resuelve a tiempos absolutos).',
   input_schema: {
     type: 'object',
     additionalProperties: false,
@@ -21,40 +21,70 @@ const EDL_TOOL: Anthropic.Tool = {
                 clipId: { type: 'string' },
                 inMs: { type: 'integer' },
                 outMs: { type: 'integer' },
-                reason: { type: 'string' },
+                cutReason: { type: 'string' },
               },
-              required: ['kind', 'clipId', 'inMs', 'outMs', 'reason'],
+              required: ['kind', 'clipId', 'inMs', 'outMs', 'cutReason'],
             },
             {
               type: 'object',
               additionalProperties: false,
               properties: {
-                kind: { type: 'string', enum: ['voiceover'] },
-                script: { type: 'string' },
-                durationEstimateMs: { type: 'integer' },
-                brollClipIds: { type: 'array', items: { type: 'string' } },
-                reason: { type: 'string' },
+                kind: { type: 'string', enum: ['broll'] },
+                clipId: { type: 'string' },
+                inMs: { type: 'integer' },
+                outMs: { type: 'integer' },
               },
-              required: ['kind', 'script', 'durationEstimateMs', 'brollClipIds', 'reason'],
+              required: ['kind', 'clipId', 'inMs', 'outMs'],
             },
           ],
         },
       },
-      musicHints: {
-        type: 'array',
-        items: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            segmentIdx: { type: 'integer' },
-            mood: { type: 'string' },
-            energy: { type: 'string', enum: ['low', 'mid', 'high'] },
+      voiceover: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          fullScript: { type: 'string' },
+          cues: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              properties: {
+                startSegmentIdx: { type: 'integer' },
+                text: { type: 'string' },
+              },
+              required: ['startSegmentIdx', 'text'],
+            },
           },
-          required: ['segmentIdx', 'mood', 'energy'],
         },
+        required: ['fullScript', 'cues'],
+      },
+      music: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          sections: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              properties: {
+                startSegmentIdx: { type: 'integer' },
+                endSegmentIdx: { type: 'integer' },
+                query: { type: 'string' },
+                mood: { type: 'string' },
+                energy: { type: 'string', enum: ['low', 'mid', 'high'] },
+                baseVolume: { type: 'number' },
+                reason: { type: 'string' },
+              },
+              required: ['startSegmentIdx', 'endSegmentIdx', 'query', 'mood', 'energy', 'reason'],
+            },
+          },
+        },
+        required: ['sections'],
       },
     },
-    required: ['segments', 'musicHints'],
+    required: ['segments', 'voiceover', 'music'],
   },
 };
 
@@ -75,14 +105,5 @@ export async function generateEdlAnthropic(input: PlanInput): Promise<Edl> {
   );
   if (!toolUse) throw new Error('Claude no devolvió tool_use de emit_edl');
 
-  const data = toolUse.input as Record<string, unknown>;
-  const edl: Edl = {
-    segments: data.segments as Edl['segments'],
-    musicHints: data.musicHints as Edl['musicHints'],
-    intent: input.intent,
-    targetDurationSec: input.targetDurationSec,
-    generatedAt: new Date().toISOString(),
-  };
-  if (!isValidEdl(edl)) throw new Error('EDL devuelto por Claude no es válido');
-  return edl;
+  return resolveLlmEdl(toolUse.input as LlmEdl, input);
 }

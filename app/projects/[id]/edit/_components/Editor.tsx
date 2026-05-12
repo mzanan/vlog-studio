@@ -5,7 +5,6 @@ import { Button, Group, Loader, Stack, Text } from '@mantine/core';
 import { IconSparkles, IconVideo } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { Edl } from '@/lib/edl';
-import { MusicBlock } from '@/lib/music';
 import { VlogInputProps } from '@/lib/remotion/types';
 import { EditorPlayer } from './EditorPlayer';
 import { Timeline } from './Timeline';
@@ -39,15 +38,6 @@ export function Editor({
     },
   });
 
-  const musicQuery = useQuery({
-    queryKey: ['music', projectId],
-    queryFn: async () => {
-      const res = await fetch(`/api/projects/${projectId}/music`);
-      if (!res.ok) throw new Error('falló');
-      return (await res.json()).blocks as MusicBlock[];
-    },
-  });
-
   const renderPropsQuery = useQuery({
     queryKey: ['render-props', projectId],
     queryFn: async () => {
@@ -67,7 +57,6 @@ export function Editor({
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['edl', projectId] });
-      qc.invalidateQueries({ queryKey: ['music', projectId] });
       qc.invalidateQueries({ queryKey: ['render-props', projectId] });
       notifications.show({ color: 'teal', message: 'Plan generado' });
     },
@@ -108,7 +97,6 @@ export function Editor({
 
   const refreshAll = () => {
     qc.invalidateQueries({ queryKey: ['edl', projectId] });
-    qc.invalidateQueries({ queryKey: ['music', projectId] });
     qc.invalidateQueries({ queryKey: ['render-props', projectId] });
   };
 
@@ -170,7 +158,6 @@ export function Editor({
           <Timeline
             projectId={projectId}
             edl={planQuery.data}
-            musicBlocks={musicQuery.data ?? []}
             clips={clips}
             onChanged={refreshAll}
           />

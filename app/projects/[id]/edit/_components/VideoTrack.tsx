@@ -15,10 +15,10 @@ export function VideoTrack({
     <>
       {layout.map(({ idx, seg, startMs, widthPx }) => {
         const isClip = seg.kind === 'clip';
-        const filename = isClip ? clipsLookup[seg.clipId]?.filename ?? seg.clipId : 'VO + B-roll';
+        const filename = clipsLookup[seg.clipId]?.filename ?? seg.clipId;
         const detail = isClip
-          ? `${(seg.inMs / 1000).toFixed(1)}s → ${(seg.outMs / 1000).toFixed(1)}s`
-          : seg.script;
+          ? `${(seg.inMs / 1000).toFixed(1)}s → ${(seg.outMs / 1000).toFixed(1)}s · ${seg.cutReason}`
+          : `B-roll silenciado · ${(seg.inMs / 1000).toFixed(1)}s → ${(seg.outMs / 1000).toFixed(1)}s`;
 
         return (
           <Tooltip key={idx} label={detail} multiline w={300} withinPortal>
@@ -38,7 +38,7 @@ export function VideoTrack({
                 cursor: 'default',
               }}
             >
-              <div style={{ fontWeight: 600 }}>{idx + 1}. {isClip ? 'clip' : 'VO'}</div>
+              <div style={{ fontWeight: 600 }}>{idx + 1}. {isClip ? 'clip' : 'b-roll'}</div>
               <Text size="xs" lineClamp={2} c="dimmed">{filename}</Text>
             </div>
           </Tooltip>
