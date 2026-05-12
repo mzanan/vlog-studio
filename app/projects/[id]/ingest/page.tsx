@@ -23,6 +23,7 @@ export default async function IngestPage(props: PageProps<'/projects/[id]/ingest
             <Title order={1}>{project.name}</Title>
             {project.intent && <Text c="dimmed" size="sm">{project.intent}</Text>}
           </Stack>
+          <Anchor href={`/projects/${id}/plan`}>Plan →</Anchor>
         </Group>
 
         <IngestDropzone projectId={id} />

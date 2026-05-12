@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
+    "@google/genai": "^2.1.0",
     "@mantine/core": "^9.1.1",
     "@mantine/dropzone": "^9.1.1",
     "@mantine/hooks": "^9.1.1",
