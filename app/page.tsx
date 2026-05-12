@@ -1,66 +1,47 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+import { Anchor, Container, Stack, Table, TableTbody, TableTd, TableTh, TableThead, TableTr, Text, Title } from '@mantine/core';
+import { prisma } from '@/lib/db';
+import { NewProjectButton } from './_components/NewProjectButton';
 
-export default function Home() {
+export const dynamic = 'force-dynamic';
+
+export default async function Home() {
+  const projects = await prisma.project.findMany({
+    orderBy: { updatedAt: 'desc' },
+    include: { _count: { select: { clips: true } } },
+  });
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <Container size="md" py="xl">
+      <Stack gap="lg">
+        <Title order={1}>vlog-studio</Title>
+
+        <NewProjectButton />
+
+        {projects.length === 0 ? (
+          <Text c="dimmed">Sin proyectos aún. Crea uno arriba.</Text>
+        ) : (
+          <Table withTableBorder verticalSpacing="sm">
+            <TableThead>
+              <TableTr>
+                <TableTh>Proyecto</TableTh>
+                <TableTh>Clips</TableTh>
+                <TableTh>Actualizado</TableTh>
+              </TableTr>
+            </TableThead>
+            <TableTbody>
+              {projects.map((p) => (
+                <TableTr key={p.id}>
+                  <TableTd>
+                    <Anchor href={`/projects/${p.id}/ingest`}>{p.name}</Anchor>
+                  </TableTd>
+                  <TableTd>{p._count.clips}</TableTd>
+                  <TableTd>{new Date(p.updatedAt).toLocaleString()}</TableTd>
+                </TableTr>
+              ))}
+            </TableTbody>
+          </Table>
+        )}
+      </Stack>
+    </Container>
   );
 }

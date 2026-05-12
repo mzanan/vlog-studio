@@ -27,3 +27,8 @@ Pinned a 22 via `.nvmrc`. `nvm use` antes de cualquier comando.
 - Git config local en este repo: `matiaszanan@gmail.com` / `Matias Zanan`.
 - Sin fechas de entrega — proyecto hobby.
 - Prosa breve. Templates ya están en español.
+
+## Gotchas
+
+- **Mantine compound components en RSC**: `<Table.Thead>` falla en Server Components con "Element type is invalid". Importar nombrados (`TableThead`, `TableTbody`, etc.). Pasa con otros compounds — preferir named exports.
+- **Mantine `Anchor component={Link}` desde RSC**: tirar a `<Anchor href=...>` (full reload) o envolver en un Client Component. Funciones no se serializan a través de la frontera RSC.
