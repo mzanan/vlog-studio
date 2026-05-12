@@ -32,7 +32,7 @@ export default async function Home() {
               {projects.map((p) => (
                 <TableTr key={p.id}>
                   <TableTd>
-                    <Anchor href={`/projects/${p.id}/ingest`}>{p.name}</Anchor>
+                    <Anchor href={`/projects/${p.id}/edit`}>{p.name}</Anchor>
                   </TableTd>
                   <TableTd>{p._count.clips}</TableTd>
                   <TableTd>{new Date(p.updatedAt).toLocaleString()}</TableTd>
