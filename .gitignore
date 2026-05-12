@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/lib/generated/prisma
+
+# vlog-studio
+/data/
+/python/.venv/
+/python/__pycache__/
+*.pyc
+*.sqlite
+*.sqlite-journal
