@@ -48,13 +48,16 @@ export default async function RecordPage(props: PageProps<'/projects/[id]/record
   return (
     <Container size="lg" py="xl">
       <Stack gap="lg">
-        <Stack gap={4}>
-          <Anchor href={`/projects/${id}/plan`} size="sm" c="dimmed">← Plan</Anchor>
-          <Title order={1}>{project.name} — Grabación VO</Title>
-          <Text c="dimmed" size="sm">
-            {statuses.length} segmento(s) de voiceover a grabar
-          </Text>
-        </Stack>
+        <Group justify="space-between" align="flex-end">
+          <Stack gap={4}>
+            <Anchor href={`/projects/${id}/plan`} size="sm" c="dimmed">← Plan</Anchor>
+            <Title order={1}>{project.name} — Grabación VO</Title>
+            <Text c="dimmed" size="sm">
+              {statuses.length} segmento(s) de voiceover a grabar
+            </Text>
+          </Stack>
+          <Anchor href={`/projects/${id}/music`}>Música →</Anchor>
+        </Group>
 
         {statuses.length === 0 ? (
           <Text c="dimmed">El plan no tiene segmentos de voiceover.</Text>

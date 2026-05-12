@@ -10,6 +10,14 @@ Plan completo: `~/Documents/projects/personal/personal-brain/01-Projects/01-vlog
 - ffmpeg en PATH (`brew install ffmpeg`)
 - openai-whisper en PATH (`~/Library/Python/3.9/bin/whisper` con modelo `turbo` cacheado)
 - API key de Gemini en `.env` (`GEMINI_API_KEY`) o Anthropic (`ANTHROPIC_API_KEY` + `LLM_PROVIDER=anthropic`)
+- Python 3.12 venv para MusicGen (afuera del proyecto, Turbopack se enoja con los symlinks adentro):
+
+  ```bash
+  python3.12 -m venv ~/.venvs/vlog-studio
+  ~/.venvs/vlog-studio/bin/pip install torch transformers scipy numpy
+  ```
+
+  Primera generación descarga `facebook/musicgen-small` (~2.5GB) a `~/.cache/huggingface/`. Después de eso es offline. ~3-5s de compute por cada 1s de audio en Apple Silicon.
 
 ## Dev
 
