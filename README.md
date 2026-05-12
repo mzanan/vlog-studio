@@ -8,12 +8,8 @@ Plan completo: `~/Documents/projects/personal/personal-brain/01-Projects/01-vlog
 
 - Node 22 (via nvm — hay `.nvmrc`)
 - ffmpeg en PATH (`brew install ffmpeg`)
-- Python 3.11+ (venv local en `python/` se crea cuando arranque Fase 1)
-- `ANTHROPIC_API_KEY` en `.env.local`
-
-## Estado
-
-Pre-Fase 1. Bootstrap completo, pipeline aún no implementado.
+- openai-whisper en PATH (`~/Library/Python/3.9/bin/whisper` con modelo `turbo` cacheado)
+- API key de Gemini en `.env` (`GEMINI_API_KEY`) o Anthropic (`ANTHROPIC_API_KEY` + `LLM_PROVIDER=anthropic`)
 
 ## Dev
 
@@ -21,3 +17,10 @@ Pre-Fase 1. Bootstrap completo, pipeline aún no implementado.
 nvm use
 npm run dev
 ```
+
+## Ingest
+
+Dos caminos:
+
+1. **Drag & drop** en `/projects/<id>/ingest`: arrastrás clips al dropzone.
+2. **Inbox**: copiás archivos (AirDrop, manual, lo que sea) a `data/inbox/`, después click **"Importar inbox"**. Los procesados se mueven a `data/inbox/imported/`.

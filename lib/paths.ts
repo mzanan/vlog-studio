@@ -13,3 +13,8 @@ export function clipsDir(projectId: string) {
 export function thumbsDir(projectId: string) {
   return path.join(projectDir(projectId), 'thumbs');
 }
+
+export const INBOX_DIR = path.join(DATA_ROOT, 'inbox');
+export const INBOX_IMPORTED_DIR = path.join(INBOX_DIR, 'imported');
+
+export const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.mkv', '.webm', '.m4v', '.avi']);
