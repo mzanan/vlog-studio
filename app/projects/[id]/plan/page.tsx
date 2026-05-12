@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { Anchor, Container, Stack, Title, Text } from '@mantine/core';
+import { Anchor, Container, Group, Stack, Title, Text } from '@mantine/core';
 import { prisma } from '@/lib/db';
 import { isValidEdl } from '@/lib/edl';
 import { PlanView } from './_components/PlanView';
@@ -20,11 +20,14 @@ export default async function PlanPage(props: PageProps<'/projects/[id]/plan'>) 
   return (
     <Container size="lg" py="xl">
       <Stack gap="lg">
-        <Stack gap={4}>
-          <Anchor href={`/projects/${id}/ingest`} size="sm" c="dimmed">← Ingest</Anchor>
-          <Title order={1}>{project.name}</Title>
-          {project.intent && <Text c="dimmed" size="sm">{project.intent}</Text>}
-        </Stack>
+        <Group justify="space-between" align="flex-end">
+          <Stack gap={4}>
+            <Anchor href={`/projects/${id}/ingest`} size="sm" c="dimmed">← Ingest</Anchor>
+            <Title order={1}>{project.name}</Title>
+            {project.intent && <Text c="dimmed" size="sm">{project.intent}</Text>}
+          </Stack>
+          <Anchor href={`/projects/${id}/record`}>Grabar VO →</Anchor>
+        </Group>
 
         <PlanView
           projectId={id}
