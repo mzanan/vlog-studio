@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { Anchor, Container, Stack, Title, Text } from '@mantine/core';
+import { Anchor, Container, Group, Stack, Title, Text } from '@mantine/core';
 import { prisma } from '@/lib/db';
 import { isValidEdl } from '@/lib/edl';
 import { MusicView } from './_components/MusicView';
@@ -26,13 +26,16 @@ export default async function MusicPage(props: PageProps<'/projects/[id]/music'>
   return (
     <Container size="lg" py="xl">
       <Stack gap="lg">
-        <Stack gap={4}>
-          <Anchor href={`/projects/${id}/record`} size="sm" c="dimmed">← Grabación VO</Anchor>
-          <Title order={1}>{project.name} — Música</Title>
-          <Text c="dimmed" size="sm">
-            Un track por bloque. Podés dividir o unir bloques según cuántos segmentos quieras musicalizar con la misma canción.
-          </Text>
-        </Stack>
+        <Group justify="space-between" align="flex-end">
+          <Stack gap={4}>
+            <Anchor href={`/projects/${id}/record`} size="sm" c="dimmed">← Grabación VO</Anchor>
+            <Title order={1}>{project.name} — Música</Title>
+            <Text c="dimmed" size="sm">
+              Un track por bloque. Podés dividir o unir bloques según cuántos segmentos quieras musicalizar con la misma canción.
+            </Text>
+          </Stack>
+          <Anchor href={`/projects/${id}/export`}>Export →</Anchor>
+        </Group>
         <MusicView projectId={id} edl={project.edl} />
       </Stack>
     </Container>
