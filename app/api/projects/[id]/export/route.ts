@@ -1,11 +1,12 @@
 import { NextRequest } from 'next/server';
 import path from 'node:path';
-import { mkdir, readFile, readdir, stat } from 'node:fs/promises';
+import { mkdir, readdir, stat } from 'node:fs/promises';
 import { prisma } from '@/lib/db';
 import { isValidEdl } from '@/lib/edl';
 import { projectDir } from '@/lib/paths';
 import { buildVlogProps } from '@/lib/render-props';
 import { renderVlog } from '@/lib/render';
+import { getBaseUrl } from '@/lib/http';
 
 export const maxDuration = 1800;
 export const dynamic = 'force-dynamic';
@@ -43,16 +44,12 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
   if (!project) return Response.json({ error: 'project not found' }, { status: 404 });
   if (!isValidEdl(project.edl)) return Response.json({ error: 'project sin EDL' }, { status: 409 });
 
-  const protocol = req.headers.get('x-forwarded-proto') ?? 'http';
-  const host = req.headers.get('host') ?? 'localhost:3000';
-  const baseUrl = `${protocol}://${host}`;
-
   try {
     const props = await buildVlogProps({
       projectId,
       edl: project.edl,
       clips: project.clips,
-      baseUrl,
+      baseUrl: getBaseUrl(req),
     });
 
     const dir = exportsDir(projectId);
