@@ -1,13 +1,15 @@
 'use client';
 
+import { useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { Button, Group, Loader, Stack, Text } from '@mantine/core';
-import { IconSparkles, IconVideo } from '@tabler/icons-react';
+import { Button, Group, Loader, SegmentedControl, Stack, Text } from '@mantine/core';
+import { IconSparkles, IconVideo, IconCheck } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
-import { Edl } from '@/lib/edl';
+import { Edl, EdlSource } from '@/lib/edl';
 import { VlogInputProps } from '@/lib/remotion/types';
 import { EditorPlayer } from './EditorPlayer';
 import { Timeline } from './Timeline';
+import { useApiMutation } from './useApiMutation';
 
 export type ClipMeta = {
   id: string;
@@ -17,9 +19,14 @@ export type ClipMeta = {
   transcribedAt: string | null;
 };
 
+type PlanResponse = {
+  edl: Edl | null;
+  suggestion: Edl | null;
+  isDefault: boolean;
+};
+
 export function Editor({
   projectId,
-  projectName,
   clips,
 }: {
   projectId: string;
@@ -27,40 +34,53 @@ export function Editor({
   clips: ClipMeta[];
 }) {
   const qc = useQueryClient();
+  const [view, setView] = useState<EdlSource>('user');
 
   const planQuery = useQuery({
     queryKey: ['edl', projectId],
     queryFn: async () => {
       const res = await fetch(`/api/projects/${projectId}/plan`);
-      if (!res.ok) return null;
-      const body = await res.json();
-      return body.edl as Edl | null;
+      if (!res.ok) return { edl: null, suggestion: null, isDefault: false } as PlanResponse;
+      return (await res.json()) as PlanResponse;
     },
   });
 
+  const hasSuggestion = !!planQuery.data?.suggestion;
+  const showSuggestion = view === 'suggestion' && hasSuggestion;
+
   const renderPropsQuery = useQuery({
-    queryKey: ['render-props', projectId],
+    queryKey: ['render-props', projectId, showSuggestion ? 'suggestion' : 'user'],
     queryFn: async () => {
-      const res = await fetch(`/api/projects/${projectId}/render-props`);
+      const url = `/api/projects/${projectId}/render-props${showSuggestion ? '?source=suggestion' : ''}`;
+      const res = await fetch(url);
       if (!res.ok) return null;
       return (await res.json()).props as VlogInputProps;
     },
     enabled: clips.length > 0,
   });
 
-  const generatePlan = useMutation({
+  const generatePlan = useApiMutation({
     mutationFn: async () => {
       const res = await fetch(`/api/projects/${projectId}/plan`, { method: 'POST' });
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error ?? 'falló');
+      return body.suggestion as Edl;
+    },
+    invalidateKeys: [['edl', projectId], ['render-props', projectId]],
+    successMessage: 'Sugerencia AI generada — revisala y aplicá si te gusta',
+    onSuccessExtra: () => setView('suggestion'),
+  });
+
+  const applySuggestion = useApiMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/projects/${projectId}/plan/apply`, { method: 'POST' });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error ?? 'falló');
       return body.edl as Edl;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['edl', projectId] });
-      qc.invalidateQueries({ queryKey: ['render-props', projectId] });
-      notifications.show({ color: 'teal', message: 'Plan generado' });
-    },
-    onError: (err) => notifications.show({ color: 'red', message: err.message, autoClose: 8000 }),
+    invalidateKeys: [['edl', projectId], ['render-props', projectId]],
+    successMessage: 'Sugerencia aplicada a tu timeline',
+    onSuccessExtra: () => setView('user'),
   });
 
   const startExport = useMutation({
@@ -112,6 +132,11 @@ export function Editor({
   }
 
   const untranscribed = clips.filter((c) => !c.transcribedAt).length;
+  const userEdl = planQuery.data?.edl ?? null;
+  const suggestionEdl = planQuery.data?.suggestion ?? null;
+  const isDefault = planQuery.data?.isDefault ?? false;
+  const hasUserPlan = !!userEdl && !isDefault;
+  const displayedEdl = showSuggestion ? suggestionEdl : userEdl;
 
   return (
     <Stack gap="md">
@@ -123,7 +148,7 @@ export function Editor({
           disabled={untranscribed > 0}
           title={untranscribed > 0 ? `${untranscribed} clips sin transcribir` : undefined}
         >
-          {planQuery.data ? 'Regenerar plan AI' : 'Generar plan AI'}
+          {hasSuggestion ? 'Regenerar sugerencia AI' : 'Generar sugerencia AI'}
         </Button>
         <Button
           variant="filled"
@@ -131,7 +156,8 @@ export function Editor({
           leftSection={<IconVideo size={16} />}
           onClick={() => startExport.mutate()}
           loading={startExport.isPending}
-          disabled={!planQuery.data}
+          disabled={!userEdl || showSuggestion}
+          title={showSuggestion ? 'Aplicá la sugerencia antes de renderizar' : undefined}
         >
           Renderizar 16:9
         </Button>
@@ -143,23 +169,57 @@ export function Editor({
         )}
       </Group>
 
+      {hasSuggestion && (
+        <Group gap="sm">
+          <SegmentedControl
+            value={showSuggestion ? 'suggestion' : 'user'}
+            onChange={(v) => setView(v as EdlSource)}
+            data={[
+              { label: hasUserPlan ? 'Mi timeline' : 'Mis clips', value: 'user' },
+              { label: 'Sugerencia AI', value: 'suggestion' },
+            ]}
+          />
+          {showSuggestion && (
+            <Button
+              leftSection={<IconCheck size={16} />}
+              color="teal"
+              onClick={() => applySuggestion.mutate()}
+              loading={applySuggestion.isPending}
+            >
+              Aplicar sugerencia
+            </Button>
+          )}
+        </Group>
+      )}
+
       {planQuery.isLoading ? (
         <Loader />
-      ) : !planQuery.data ? (
+      ) : !displayedEdl ? (
         <Text c="dimmed">
-          No hay plan todavía. Clickeá &quot;Generar plan AI&quot; arriba para que Gemini te proponga un EDL inicial.
+          No hay clips todavía. Subí algunos desde el botón &quot;Clips&quot; arriba.
         </Text>
       ) : (
         <>
+          {!showSuggestion && isDefault && (
+            <Text c="dimmed" size="sm">
+              Mostrando clips originales en orden de creación. Generá sugerencia AI para cortes y orden propuestos.
+            </Text>
+          )}
+          {showSuggestion && (
+            <Text c="dimmed" size="sm">
+              Vista de solo lectura. Aplicá la sugerencia para poder editarla.
+            </Text>
+          )}
           <EditorPlayer
             props={renderPropsQuery.data ?? null}
             loading={renderPropsQuery.isLoading || renderPropsQuery.isFetching}
           />
           <Timeline
             projectId={projectId}
-            edl={planQuery.data}
+            edl={displayedEdl}
             clips={clips}
             onChanged={refreshAll}
+            readOnly={showSuggestion}
           />
         </>
       )}

@@ -4,50 +4,97 @@ import { useMemo } from 'react';
 import { Paper, ScrollArea, Stack } from '@mantine/core';
 import { Edl, EdlSegment, segmentDurationMs } from '@/lib/edl';
 import { ClipMeta } from './Editor';
-import { VideoTrack } from './VideoTrack';
+import { VideoTrack, VideoSegmentItem } from './VideoTrack';
 import { MusicTrack } from './MusicTrack';
 import { VoTrack } from './VoTrack';
+import { useApiMutation } from './useApiMutation';
 
 export const PX_PER_SEC = 50;
 export const TRACK_HEIGHT = 64;
-
-export type SegmentLayout = { idx: number; seg: EdlSegment; startMs: number; widthPx: number };
 
 export function Timeline({
   projectId,
   edl,
   clips,
   onChanged,
+  readOnly = false,
 }: {
   projectId: string;
   edl: Edl;
   clips: ClipMeta[];
   onChanged: () => void;
+  readOnly?: boolean;
 }) {
-  const layout = useMemo<SegmentLayout[]>(() => {
-    const out: SegmentLayout[] = [];
-    let startMs = 0;
-    edl.segments.forEach((seg, idx) => {
-      const dms = segmentDurationMs(seg);
-      out.push({ idx, seg, startMs, widthPx: (dms / 1000) * PX_PER_SEC });
-      startMs += dms;
-    });
-    return out;
-  }, [edl.segments]);
+  const videoItems = useMemo<VideoSegmentItem[]>(
+    () =>
+      edl.segments.map((seg, idx) => ({
+        id: seg.id,
+        idx,
+        seg,
+        widthPx: (segmentDurationMs(seg) / 1000) * PX_PER_SEC,
+      })),
+    [edl.segments],
+  );
 
-  const totalMs = layout.reduce((acc, l) => acc + segmentDurationMs(l.seg), 0);
+  const totalMs = videoItems.reduce((acc, it) => acc + segmentDurationMs(it.seg), 0);
   const totalWidthPx = Math.max(600, (totalMs / 1000) * PX_PER_SEC + 40);
-
   const clipsLookup = useMemo(() => Object.fromEntries(clips.map((c) => [c.id, c])), [clips]);
+
+  const patchEdl = useApiMutation({
+    mutationFn: async (newEdl: Edl) => {
+      const res = await fetch(`/api/projects/${projectId}/plan`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ edl: newEdl }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error ?? 'falló');
+      return body.edl as Edl;
+    },
+    invalidateKeys: [['edl', projectId], ['render-props', projectId]],
+    onSuccessExtra: () => onChanged(),
+    errorAutoClose: 6000,
+  });
+
+  const handleReorder = (newOrder: string[]) => {
+    const byId = new Map(videoItems.map((it) => [it.id, it.seg]));
+    const newSegments = newOrder
+      .map((id) => byId.get(id))
+      .filter((s): s is EdlSegment => Boolean(s));
+    if (newSegments.length !== edl.segments.length) return;
+    patchEdl.mutate({ ...edl, segments: newSegments });
+  };
+
+  const handleRestoreClip = (segmentItemId: string) => {
+    const idx = videoItems.findIndex((it) => it.id === segmentItemId);
+    if (idx < 0) return;
+    const seg = videoItems[idx].seg;
+    const clip = clipsLookup[seg.clipId];
+    if (!clip) return;
+    if (seg.inMs === 0 && seg.outMs === clip.durationMs) return;
+    const restored: EdlSegment =
+      seg.kind === 'clip'
+        ? { ...seg, inMs: 0, outMs: clip.durationMs, cutReason: '' }
+        : { ...seg, inMs: 0, outMs: clip.durationMs };
+    const newSegments = [...edl.segments];
+    newSegments[idx] = restored;
+    patchEdl.mutate({ ...edl, segments: newSegments });
+  };
 
   return (
     <Paper withBorder p="md">
       <Stack gap="xs">
-        <Ruler totalMs={totalMs} widthPx={totalWidthPx} />
         <ScrollArea type="hover" offsetScrollbars>
           <Stack gap={6} style={{ minWidth: totalWidthPx }}>
+            <Ruler totalMs={totalMs} widthPx={totalWidthPx} />
             <TrackRow label="Video">
-              <VideoTrack layout={layout} clipsLookup={clipsLookup} />
+              <VideoTrack
+                items={videoItems}
+                clipsLookup={clipsLookup}
+                onReorder={handleReorder}
+                onRestoreClip={handleRestoreClip}
+                readOnly={readOnly}
+              />
             </TrackRow>
             <TrackRow label="Música">
               <MusicTrack
@@ -88,10 +135,10 @@ function TrackRow({ label, children }: { label: string; children: React.ReactNod
 }
 
 function Ruler({ totalMs, widthPx }: { totalMs: number; widthPx: number }) {
-  const seconds = Math.ceil(totalMs / 1000);
+  const totalSec = totalMs / 1000;
+  const step = totalSec > 60 ? 10 : totalSec > 30 ? 5 : 2;
   const ticks: number[] = [];
-  const step = seconds > 60 ? 10 : seconds > 30 ? 5 : 2;
-  for (let s = 0; s <= seconds; s += step) ticks.push(s);
+  for (let s = 0; s <= totalSec; s += step) ticks.push(s);
 
   return (
     <div style={{ marginLeft: 68, position: 'relative', height: 20, minWidth: widthPx }}>

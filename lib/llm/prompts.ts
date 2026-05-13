@@ -168,6 +168,7 @@ export function resolveLlmEdl(llm: LlmEdl, input: PlanInput): Edl {
   const segments = llm.segments.map((s): EdlClipSegment | EdlBrollSegment => {
     if (s.kind === 'clip') {
       return {
+        id: randomUUID(),
         kind: 'clip',
         clipId: s.clipId,
         inMs: s.inMs,
@@ -175,7 +176,7 @@ export function resolveLlmEdl(llm: LlmEdl, input: PlanInput): Edl {
         cutReason: s.cutReason || '(sin razón)',
       };
     }
-    return { kind: 'broll', clipId: s.clipId, inMs: s.inMs, outMs: s.outMs };
+    return { id: randomUUID(), kind: 'broll', clipId: s.clipId, inMs: s.inMs, outMs: s.outMs };
   });
 
   // Tiempo absoluto donde empieza cada segment.

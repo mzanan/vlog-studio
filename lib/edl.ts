@@ -3,7 +3,10 @@
 // narrativas en tiempo absoluto (no atadas a segmentIdx), trim semántico con
 // cutReason obligatorio, orden propuesto + originalOrder.
 
+import { randomUUID } from 'node:crypto';
+
 export type EdlClipSegment = {
+  id: string;
   kind: 'clip';
   clipId: string;
   inMs: number;
@@ -12,6 +15,7 @@ export type EdlClipSegment = {
 };
 
 export type EdlBrollSegment = {
+  id: string;
   kind: 'broll';
   clipId: string;
   inMs: number;
@@ -42,8 +46,13 @@ export type MusicSection = {
   energy: Energy;
   baseVolume: number;
   reason: string;
+  // Populated post-LLM por Jamendo lookup. `trackId` resuelve al MP3 cacheado
+  // en data/music-cache/<trackId>.mp3; el resto es para attribution.
+  trackId?: string;
   trackUrl?: string;
   trackTitle?: string;
+  trackArtist?: string;
+  trackLicenseUrl?: string;
 };
 
 export type EdlMusic = {
@@ -95,10 +104,34 @@ export function isValidEdl(value: unknown): value is Edl {
   return true;
 }
 
+// Fallback cuando el proyecto no tiene EDL persistido: todos los clips
+// full-length sin VO ni música, en el orden recibido.
+export function buildDefaultEdl(clips: Array<{ id: string; durationMs: number }>): Edl {
+  return {
+    version: 2,
+    segments: clips.map((c) => ({
+      id: randomUUID(),
+      kind: 'clip',
+      clipId: c.id,
+      inMs: 0,
+      outMs: c.durationMs,
+      cutReason: '',
+    })),
+    originalOrder: clips.map((c) => c.id),
+    voiceover: { fullScript: '', cues: [] },
+    music: { sections: [] },
+    intent: '',
+    targetDurationSec: null,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
 export function isLegacyEdl(value: unknown): boolean {
   if (!value || typeof value !== 'object') return false;
   const v = value as { version?: unknown; segments?: unknown; musicHints?: unknown };
   return v.version !== 2 && Array.isArray(v.segments);
 }
+
+export type EdlSource = 'user' | 'suggestion';
 
 export { SPEAKING_WPS_TARGET };

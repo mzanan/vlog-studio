@@ -13,6 +13,7 @@ model Project {
   intent         String?
   targetDuration Int?
   edl            Json?
+  edlSuggestion  Json?
   musicBlocks    Json?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
