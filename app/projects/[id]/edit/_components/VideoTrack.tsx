@@ -1,6 +1,7 @@
 'use client';
 
-import { ActionIcon, Text, Tooltip } from '@mantine/core';
+import { useMemo } from 'react';
+import { ActionIcon, Group, Text, Tooltip } from '@mantine/core';
 import { IconArrowBackUp } from '@tabler/icons-react';
 import {
   DndContext,
@@ -18,7 +19,9 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { EdlSegment } from '@/lib/edl';
+import { Suggestion } from '@/lib/suggestions';
 import { ClipMeta } from './Editor';
+import { SuggestionActions } from './SuggestionActions';
 
 export type VideoSegmentItem = {
   id: string;
@@ -27,23 +30,57 @@ export type VideoSegmentItem = {
   widthPx: number;
 };
 
+type SegmentSuggestions = {
+  trims: Suggestion[];      // trim-segment for this seg.id
+  splits: Suggestion[];     // split-segment for this seg.id
+  hides: Suggestion[];      // hide-clip for this seg.clipId
+};
+
 export function VideoTrack({
   items,
   clipsLookup,
+  suggestions,
   onReorder,
   onRestoreClip,
-  readOnly = false,
+  onAcceptSuggestion,
+  onRejectSuggestion,
+  onChatSuggestion,
 }: {
   items: VideoSegmentItem[];
   clipsLookup: Record<string, ClipMeta>;
+  suggestions: Suggestion[];
   onReorder: (newOrder: string[]) => void;
   onRestoreClip: (segmentItemId: string) => void;
-  readOnly?: boolean;
+  onAcceptSuggestion: (id: string) => void;
+  onRejectSuggestion: (id: string) => void;
+  onChatSuggestion: (id: string) => void;
 }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
+  const suggestionsBySegment = useMemo(() => {
+    const map = new Map<string, SegmentSuggestions>();
+    for (const it of items) {
+      map.set(it.id, { trims: [], splits: [], hides: [] });
+    }
+    for (const s of suggestions) {
+      if (s.type === 'trim-segment') {
+        const bucket = map.get(s.data.segmentId);
+        if (bucket) bucket.trims.push(s);
+      } else if (s.type === 'split-segment') {
+        const bucket = map.get(s.data.segmentId);
+        if (bucket) bucket.splits.push(s);
+      } else if (s.type === 'hide-clip') {
+        for (const it of items) {
+          if (it.seg.clipId === s.data.clipId) {
+            map.get(it.id)?.hides.push(s);
+          }
+        }
+      }
+    }
+    return map;
+  }, [items, suggestions]);
+
   const handleDragEnd = (event: DragEndEvent) => {
-    if (readOnly) return;
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     const oldIndex = items.findIndex((it) => it.id === active.id);
@@ -67,6 +104,7 @@ export function VideoTrack({
         >
           {items.map((item) => {
             const clip = clipsLookup[item.seg.clipId];
+            const sugs = suggestionsBySegment.get(item.id) ?? { trims: [], splits: [], hides: [] };
             return (
               <SegmentBlock
                 key={item.id}
@@ -74,7 +112,10 @@ export function VideoTrack({
                 filename={clip?.filename ?? item.seg.clipId}
                 fullDurationMs={clip?.durationMs ?? item.seg.outMs}
                 onRestore={() => onRestoreClip(item.id)}
-                readOnly={readOnly}
+                suggestions={sugs}
+                onAcceptSuggestion={onAcceptSuggestion}
+                onRejectSuggestion={onRejectSuggestion}
+                onChatSuggestion={onChatSuggestion}
               />
             );
           })}
@@ -89,29 +130,38 @@ function SegmentBlock({
   filename,
   fullDurationMs,
   onRestore,
-  readOnly,
+  suggestions,
+  onAcceptSuggestion,
+  onRejectSuggestion,
+  onChatSuggestion,
 }: {
   item: VideoSegmentItem;
   filename: string;
   fullDurationMs: number;
   onRestore: () => void;
-  readOnly: boolean;
+  suggestions: SegmentSuggestions;
+  onAcceptSuggestion: (id: string) => void;
+  onRejectSuggestion: (id: string) => void;
+  onChatSuggestion: (id: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
-    disabled: readOnly,
   });
   const isClip = item.seg.kind === 'clip';
   const cutReason = isClip ? (item.seg as { cutReason?: string }).cutReason ?? '' : '';
   const trimmedMs = (item.seg.inMs > 0 ? item.seg.inMs : 0) + Math.max(0, fullDurationMs - item.seg.outMs);
   const isTrimmed = trimmedMs > 0;
+  const segDurationMs = item.seg.outMs - item.seg.inMs;
+  const hasHideSug = suggestions.hides.length > 0;
   const detail = isClip
     ? `${(item.seg.inMs / 1000).toFixed(1)}s → ${(item.seg.outMs / 1000).toFixed(1)}s${cutReason ? ` · ${cutReason}` : ''}`
     : `B-roll silenciado · ${(item.seg.inMs / 1000).toFixed(1)}s → ${(item.seg.outMs / 1000).toFixed(1)}s`;
 
+  const blockWidth = Math.max(20, item.widthPx - 2);
+
   const style: React.CSSProperties = {
     position: 'relative',
-    width: Math.max(20, item.widthPx - 2),
+    width: blockWidth,
     height: '100%',
     background: isClip ? 'var(--mantine-color-blue-light)' : 'var(--mantine-color-grape-light)',
     borderRadius: 4,
@@ -120,12 +170,19 @@ function SegmentBlock({
     fontSize: 11,
     lineHeight: 1.2,
     color: 'var(--mantine-color-text)',
-    cursor: readOnly ? 'default' : isDragging ? 'grabbing' : 'grab',
+    cursor: isDragging ? 'grabbing' : 'grab',
     flexShrink: 0,
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.6 : 1,
+    opacity: isDragging ? 0.6 : hasHideSug ? 0.4 : 1,
     zIndex: isDragging ? 10 : 1,
+  };
+
+  // Helper: map ms (absolutos en el clip original) a x dentro del block.
+  const msToX = (ms: number) => {
+    const clamped = Math.max(item.seg.inMs, Math.min(item.seg.outMs, ms));
+    const ratio = segDurationMs > 0 ? (clamped - item.seg.inMs) / segDurationMs : 0;
+    return ratio * blockWidth;
   };
 
   return (
@@ -137,7 +194,84 @@ function SegmentBlock({
         <Text size="xs" lineClamp={2} c="dimmed">
           {filename}
         </Text>
-        {isTrimmed && !readOnly && (
+
+        {/* Hide-clip overlay */}
+        {hasHideSug && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 4,
+              zIndex: 3,
+              pointerEvents: 'none',
+            }}
+          >
+            <div
+              style={{
+                background: 'var(--mantine-color-red-9)',
+                color: 'white',
+                fontSize: 10,
+                fontWeight: 600,
+                padding: '2px 6px',
+                borderRadius: 3,
+                pointerEvents: 'auto',
+              }}
+            >
+              AI: ocultar
+            </div>
+            <div style={{ pointerEvents: 'auto' }}>
+              <SuggestionActions
+                onAccept={() => onAcceptSuggestion(suggestions.hides[0].id)}
+                onReject={() => onRejectSuggestion(suggestions.hides[0].id)}
+                onChat={() => onChatSuggestion(suggestions.hides[0].id)}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Trim-segment overlays */}
+        {!hasHideSug && suggestions.trims.map((s) => {
+          if (s.type !== 'trim-segment') return null;
+          const left = msToX(s.data.newInMs);
+          const right = msToX(s.data.newOutMs);
+          const width = Math.max(4, right - left);
+          return (
+            <TrimOverlay
+              key={s.id}
+              left={left}
+              width={width}
+              label={s.rationale}
+              onAccept={() => onAcceptSuggestion(s.id)}
+              onReject={() => onRejectSuggestion(s.id)}
+              onChat={() => onChatSuggestion(s.id)}
+            />
+          );
+        })}
+
+        {/* Split-segment overlays */}
+        {!hasHideSug && suggestions.splits.map((s) => {
+          if (s.type !== 'split-segment') return null;
+          return (
+            <SplitOverlay
+              key={s.id}
+              splits={s.data.splits.map((sp) => ({
+                left: msToX(sp.inMs),
+                width: Math.max(4, msToX(sp.outMs) - msToX(sp.inMs)),
+                reason: sp.cutReason,
+              }))}
+              rationale={s.rationale}
+              onAccept={() => onAcceptSuggestion(s.id)}
+              onReject={() => onRejectSuggestion(s.id)}
+              onChat={() => onChatSuggestion(s.id)}
+            />
+          );
+        })}
+
+        {isTrimmed && (
           <Tooltip label={`Restaurar duración completa (recortado ${(trimmedMs / 1000).toFixed(1)}s)`} withinPortal>
             <ActionIcon
               size="xs"
@@ -157,5 +291,105 @@ function SegmentBlock({
         )}
       </div>
     </Tooltip>
+  );
+}
+
+function TrimOverlay({
+  left,
+  width,
+  label,
+  onAccept,
+  onReject,
+  onChat,
+}: {
+  left: number;
+  width: number;
+  label: string;
+  onAccept: () => void;
+  onReject: () => void;
+  onChat: () => void;
+}) {
+  return (
+    <Tooltip label={`AI propone recortar: ${label}`} withinPortal>
+      <div
+        style={{
+          position: 'absolute',
+          left,
+          top: 0,
+          width,
+          height: '100%',
+          border: '2px dashed var(--mantine-color-teal-6)',
+          background: 'rgba(0, 200, 150, 0.12)',
+          borderRadius: 3,
+          pointerEvents: 'none',
+          zIndex: 2,
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 2,
+            right: 2,
+            pointerEvents: 'auto',
+          }}
+        >
+          <SuggestionActions onAccept={onAccept} onReject={onReject} onChat={onChat} />
+        </div>
+      </div>
+    </Tooltip>
+  );
+}
+
+function SplitOverlay({
+  splits,
+  rationale,
+  onAccept,
+  onReject,
+  onChat,
+}: {
+  splits: Array<{ left: number; width: number; reason: string }>;
+  rationale: string;
+  onAccept: () => void;
+  onReject: () => void;
+  onChat: () => void;
+}) {
+  return (
+    <>
+      {splits.map((sp, i) => (
+        <Tooltip key={i} label={sp.reason || rationale} withinPortal>
+          <div
+            style={{
+              position: 'absolute',
+              left: sp.left,
+              top: 0,
+              width: sp.width,
+              height: '100%',
+              border: '2px dashed var(--mantine-color-violet-6)',
+              background: 'rgba(160, 80, 240, 0.12)',
+              borderRadius: 3,
+              pointerEvents: 'none',
+              zIndex: 2,
+            }}
+          />
+        </Tooltip>
+      ))}
+      <div style={{ position: 'absolute', top: 2, left: 2, pointerEvents: 'auto', zIndex: 4 }}>
+        <Group gap={4} wrap="nowrap">
+          <div
+            style={{
+              background: 'var(--mantine-color-violet-8)',
+              color: 'white',
+              fontSize: 9,
+              fontWeight: 600,
+              padding: '1px 4px',
+              borderRadius: 2,
+            }}
+          >
+            AI: partir en {splits.length}
+          </div>
+          <SuggestionActions onAccept={onAccept} onReject={onReject} onChat={onChat} />
+        </Group>
+      </div>
+    </>
   );
 }
