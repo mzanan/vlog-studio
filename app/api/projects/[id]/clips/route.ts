@@ -1,10 +1,10 @@
 import { NextRequest } from 'next/server';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { prisma } from '@/lib/db';
 import { clipsDir, thumbsDir } from '@/lib/paths';
-import { ffprobe, generateThumbnail } from '@/lib/ffmpeg';
+import { ffprobe, generateThumbnail, normalizeClip } from '@/lib/ffmpeg';
 import { enqueueTranscribe } from '@/lib/transcribeQueue';
 
 export async function GET(_req: NextRequest, ctx: RouteContext<'/api/projects/[id]/clips'>) {
@@ -33,16 +33,30 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
 
   const created = [];
   for (const file of files) {
+    const uuid = randomUUID();
     const ext = path.extname(file.name) || '.mp4';
-    const filename = `${randomUUID()}${ext}`;
-    const fullPath = path.join(targetClipsDir, filename);
-    await writeFile(fullPath, Buffer.from(await file.arrayBuffer()));
+    // Escribimos a un path temporal y normalizamos a .mp4 final (H.264 + faststart)
+    // para que el browser pueda seekearlo bien desde Remotion.
+    const tempPath = path.join(targetClipsDir, `${uuid}.raw${ext}`);
+    const finalPath = path.join(targetClipsDir, `${uuid}.mp4`);
+    await writeFile(tempPath, Buffer.from(await file.arrayBuffer()));
 
-    const probe = await ffprobe(fullPath);
-
-    const thumbPath = path.join(targetThumbsDir, `${path.parse(filename).name}.jpg`);
     try {
-      await generateThumbnail(fullPath, thumbPath, Math.min(1, probe.durationMs / 2000));
+      await normalizeClip(tempPath, finalPath);
+      await rm(tempPath, { force: true });
+    } catch (err) {
+      // Si la normalización falla, conservamos el original con nombre final como fallback.
+      console.warn(`[ingest] normalize failed for ${file.name}: ${err}`);
+      await rm(finalPath, { force: true });
+      await writeFile(finalPath, await (await import('node:fs/promises')).readFile(tempPath));
+      await rm(tempPath, { force: true });
+    }
+
+    const probe = await ffprobe(finalPath);
+
+    const thumbPath = path.join(targetThumbsDir, `${uuid}.jpg`);
+    try {
+      await generateThumbnail(finalPath, thumbPath, Math.min(1, probe.durationMs / 2000));
     } catch {
       // thumbnail is non-fatal
     }
@@ -51,7 +65,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
       data: {
         projectId,
         filename: file.name,
-        path: fullPath,
+        path: finalPath,
         durationMs: probe.durationMs,
         width: probe.width,
         height: probe.height,

@@ -12,14 +12,15 @@ const MIME: Record<string, string> = {
   '.avi': 'video/x-msvideo',
 };
 
-export async function GET(_req: NextRequest, ctx: RouteContext<'/api/projects/[id]/clips/[clipId]/file'>) {
+export async function GET(req: NextRequest, ctx: RouteContext<'/api/projects/[id]/clips/[clipId]/file'>) {
   const { clipId } = await ctx.params;
   const clip = await prisma.clip.findUnique({ where: { id: clipId } });
   if (!clip) return new Response('not found', { status: 404 });
 
   const ext = path.extname(clip.path).toLowerCase();
-  return serveFile(clip.path, {
-    contentType: MIME[ext] ?? 'application/octet-stream',
-    cacheControl: 'private, max-age=600',
-  });
+  return serveFile(
+    clip.path,
+    { contentType: MIME[ext] ?? 'application/octet-stream', cacheControl: 'private, max-age=600' },
+    req,
+  );
 }
