@@ -9,6 +9,9 @@ export type SegmentProp = {
   durationFrames: number;
   clipWidth: number;
   clipHeight: number;
+  // Multiplicador linear sobre el audio del video original (1 = sin cambio).
+  // Computado offline por normalizeAudio a partir de loudnorm. Default 1.
+  audioVolumeMul: number;
 };
 
 export type VoiceoverCueProp = {

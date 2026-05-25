@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { stat } from 'node:fs/promises';
 import { Edl } from './edl';
+import { dbToLinear } from './ffmpeg';
 import type { Clip } from './generated/prisma/client';
 import { projectDir } from './paths';
 import { MusicSectionProp, SegmentProp, VlogInputProps, VoiceoverProp } from './remotion/types';
@@ -47,6 +48,7 @@ export async function buildVlogProps(input: BuildPropsInput): Promise<VlogInputP
       durationFrames,
       clipWidth: clip.width,
       clipHeight: clip.height,
+      audioVolumeMul: typeof clip.audioGainDb === 'number' ? dbToLinear(clip.audioGainDb) : 1,
     });
     frameCursor += durationFrames;
   }
@@ -54,7 +56,7 @@ export async function buildVlogProps(input: BuildPropsInput): Promise<VlogInputP
 
   const voPath = path.join(projectDir(projectId), 'vo', 'master.wav');
   const voiceover: VoiceoverProp = {
-    audioUrl: (await fileExists(voPath)) ? `${baseUrl}/api/projects/${projectId}/vo/master?audio=1` : null,
+    audioUrl: (await fileExists(voPath)) ? `${baseUrl}/api/projects/${projectId}/vo` : null,
     cues: edl.voiceover.cues.map((c) => ({
       startFrame: msToFrames(c.startMs),
       endFrame: msToFrames(c.endMs),

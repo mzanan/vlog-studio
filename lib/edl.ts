@@ -132,6 +132,4 @@ export function isLegacyEdl(value: unknown): boolean {
   return v.version !== 2 && Array.isArray(v.segments);
 }
 
-export type EdlSource = 'user' | 'suggestion';
-
 export { SPEAKING_WPS_TARGET };

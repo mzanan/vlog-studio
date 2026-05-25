@@ -1,8 +1,8 @@
 import { GoogleGenAI } from '@google/genai';
 import { Edl } from '../edl';
-import { LlmEdl, PLANNER_SYSTEM, PlanInput, buildUserMessage, resolveLlmEdl } from './prompts';
+import { LlmEdl, PlanInput, buildPlannerSystem, buildUserMessage, resolveLlmEdl } from './prompts';
 
-export async function generateEdlGemini(input: PlanInput): Promise<Edl> {
+export async function generateEdlGemini(input: PlanInput): Promise<{ edl: Edl; llmEdl: LlmEdl }> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY no configurada');
 
@@ -13,7 +13,7 @@ export async function generateEdlGemini(input: PlanInput): Promise<Edl> {
     model,
     contents: buildUserMessage(input),
     config: {
-      systemInstruction: PLANNER_SYSTEM,
+      systemInstruction: buildPlannerSystem(input.cutPreset),
       responseMimeType: 'application/json',
       temperature: 0.7,
     },
@@ -29,5 +29,6 @@ export async function generateEdlGemini(input: PlanInput): Promise<Edl> {
     throw new Error(`Gemini devolvió JSON inválido: ${text.slice(0, 300)}`);
   }
 
-  return resolveLlmEdl(parsed as LlmEdl, input);
+  const llmEdl = parsed as LlmEdl;
+  return { edl: resolveLlmEdl(llmEdl, input), llmEdl };
 }

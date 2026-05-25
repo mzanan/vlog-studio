@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { Edl } from '../edl';
-import { LlmEdl, PLANNER_SYSTEM, PlanInput, buildUserMessage, resolveLlmEdl } from './prompts';
+import { LlmEdl, PlanInput, buildPlannerSystem, buildUserMessage, resolveLlmEdl } from './prompts';
 
 const EDL_TOOL: Anthropic.Tool = {
   name: 'emit_edl',
@@ -19,11 +19,11 @@ const EDL_TOOL: Anthropic.Tool = {
               properties: {
                 kind: { type: 'string', enum: ['clip'] },
                 clipId: { type: 'string' },
-                inMs: { type: 'integer' },
-                outMs: { type: 'integer' },
+                keepFromWordIdx: { type: 'integer' },
+                keepToWordIdx: { type: 'integer' },
                 cutReason: { type: 'string' },
               },
-              required: ['kind', 'clipId', 'inMs', 'outMs', 'cutReason'],
+              required: ['kind', 'clipId', 'keepFromWordIdx', 'keepToWordIdx', 'cutReason'],
             },
             {
               type: 'object',
@@ -88,13 +88,13 @@ const EDL_TOOL: Anthropic.Tool = {
   },
 };
 
-export async function generateEdlAnthropic(input: PlanInput): Promise<Edl> {
+export async function generateEdlAnthropic(input: PlanInput): Promise<{ edl: Edl; llmEdl: LlmEdl }> {
   const client = new Anthropic();
   const response = await client.messages.create({
     model: process.env.CLAUDE_MODEL ?? 'claude-sonnet-4-6',
     max_tokens: 16000,
     thinking: { type: 'adaptive' },
-    system: PLANNER_SYSTEM,
+    system: buildPlannerSystem(input.cutPreset),
     tools: [EDL_TOOL],
     tool_choice: { type: 'tool', name: 'emit_edl' },
     messages: [{ role: 'user', content: buildUserMessage(input) }],
@@ -105,5 +105,6 @@ export async function generateEdlAnthropic(input: PlanInput): Promise<Edl> {
   );
   if (!toolUse) throw new Error('Claude no devolvió tool_use de emit_edl');
 
-  return resolveLlmEdl(toolUse.input as LlmEdl, input);
+  const llmEdl = toolUse.input as LlmEdl;
+  return { edl: resolveLlmEdl(llmEdl, input), llmEdl };
 }

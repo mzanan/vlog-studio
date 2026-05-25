@@ -46,7 +46,8 @@ function SegmentVideo({
   const left = (canvasWidth - renderedWidth) / 2;
   const top = (canvasHeight - renderedHeight) / 2;
 
-  const audioVolume = segment.kind === 'clip' ? CLIP_AUDIO_VOLUME : BROLL_AUDIO_VOLUME;
+  const baseVolume = segment.kind === 'clip' ? CLIP_AUDIO_VOLUME : BROLL_AUDIO_VOLUME;
+  const audioVolume = baseVolume * (segment.audioVolumeMul ?? 1);
 
   return (
     <AbsoluteFill>
