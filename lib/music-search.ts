@@ -10,6 +10,20 @@ import { MUSIC_CACHE_DIR, MUSIC_MANIFEST_PATH, musicTrackPath } from './paths';
 const JAMENDO_API = 'https://api.jamendo.com/v3.0/tracks/';
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
+const TRACK_ID_RE = /^[A-Za-z0-9_-]+$/;
+
+function isJamendoUrl(raw: string): boolean {
+  try {
+    const u = new URL(raw);
+    return (
+      (u.protocol === 'https:' || u.protocol === 'http:') &&
+      (u.hostname === 'jamendo.com' || u.hostname.endsWith('.jamendo.com'))
+    );
+  } catch {
+    return false;
+  }
+}
+
 export type JamendoTrack = {
   trackId: string;
   title: string;
@@ -157,6 +171,9 @@ export async function searchJamendoMusic(opts: SearchOptions): Promise<JamendoTr
 }
 
 export async function downloadTrack(track: JamendoTrack): Promise<string> {
+  if (!TRACK_ID_RE.test(track.trackId)) {
+    throw new Error(`Invalid trackId: ${track.trackId}`);
+  }
   await ensureCacheDir();
   const dest = musicTrackPath(track.trackId);
   try {
@@ -166,6 +183,9 @@ export async function downloadTrack(track: JamendoTrack): Promise<string> {
     // not cached, fallthrough
   }
   const url = track.audioDownloadUrl || track.audioUrl;
+  if (!isJamendoUrl(url)) {
+    throw new Error('Refusing to download from a non-Jamendo URL');
+  }
   const res = await fetch(url);
   if (!res.ok || !res.body) {
     throw new Error(`Jamendo download HTTP ${res.status} para track ${track.trackId}`);
