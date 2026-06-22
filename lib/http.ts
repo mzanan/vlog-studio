@@ -110,6 +110,6 @@ function streamFromFile(
 
 export function getBaseUrl(req: NextRequest): string {
   const protocol = req.headers.get('x-forwarded-proto') ?? 'http';
-  const host = req.headers.get('host') ?? 'localhost:3000';
+  const host = req.headers.get('host') ?? 'localhost:3030';
   return `${protocol}://${host}`;
 }

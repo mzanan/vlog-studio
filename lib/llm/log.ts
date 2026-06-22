@@ -28,6 +28,7 @@ export type LlmLogEntry = {
 };
 
 export async function writeLlmLog(entry: LlmLogEntry): Promise<void> {
+  if (process.env.NODE_ENV === 'production' && process.env.LLM_LOG !== '1') return;
   try {
     await mkdir(LLM_LOGS_DIR, { recursive: true });
     const safeTs = entry.timestamp.replace(/[:.]/g, '-');
