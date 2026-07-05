@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { bundle } from '@remotion/bundler';
-import { renderMedia, selectComposition } from '@remotion/renderer';
+import { makeCancelSignal, renderMedia, selectComposition } from '@remotion/renderer';
 import { VLOG_COMPOSITION_ID, VlogInputProps } from './remotion/types';
 
 export { buildVlogProps, FPS, WIDTH, HEIGHT } from './render-props';
@@ -21,7 +21,13 @@ async function getServeUrl(): Promise<string> {
 
 export type RenderResult = { outputPath: string; durationFrames: number };
 
-export async function renderVlog(props: VlogInputProps, outputPath: string): Promise<RenderResult> {
+const RENDER_TIMEOUT_MS = 3_600_000;
+
+export async function renderVlog(
+  props: VlogInputProps,
+  outputPath: string,
+  signal?: AbortSignal,
+): Promise<RenderResult> {
   await mkdir(path.dirname(outputPath), { recursive: true });
   const serveUrl = await getServeUrl();
 
@@ -31,14 +37,33 @@ export async function renderVlog(props: VlogInputProps, outputPath: string): Pro
     inputProps: props,
   });
 
-  await renderMedia({
-    serveUrl,
-    composition,
-    inputProps: props,
-    codec: 'h264',
-    outputLocation: outputPath,
-    concurrency: null,
-  });
+  const timeoutSignal = AbortSignal.timeout(RENDER_TIMEOUT_MS);
+  const abortSignal = signal ? AbortSignal.any([timeoutSignal, signal]) : timeoutSignal;
+  const { cancelSignal, cancel } = makeCancelSignal();
+  const onAbort = () => cancel();
+  if (abortSignal.aborted) throw new Error('render aborted by request');
+  abortSignal.addEventListener('abort', onAbort, { once: true });
+
+  try {
+    await renderMedia({
+      serveUrl,
+      composition,
+      inputProps: props,
+      codec: 'h264',
+      outputLocation: outputPath,
+      concurrency: null,
+      cancelSignal,
+    });
+  } catch (err) {
+    if (abortSignal.aborted) {
+      throw new Error(timeoutSignal.aborted
+        ? `render timed out after ${RENDER_TIMEOUT_MS}ms`
+        : 'render aborted by request');
+    }
+    throw err;
+  } finally {
+    abortSignal.removeEventListener('abort', onAbort);
+  }
 
   return { outputPath, durationFrames: composition.durationInFrames };
 }

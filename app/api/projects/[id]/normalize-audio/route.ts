@@ -5,7 +5,7 @@ import { analyzeLoudness } from '@/lib/ffmpeg';
 const CONCURRENCY = 2;
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   ctx: RouteContext<'/api/projects/[id]/normalize-audio'>,
 ) {
   const { id: projectId } = await ctx.params;
@@ -26,7 +26,7 @@ export async function POST(
       if (i >= clips.length) break;
       const c = clips[i];
       try {
-        const { inputI, gainDb } = await analyzeLoudness(c.path);
+        const { inputI, gainDb } = await analyzeLoudness(c.path, req.signal);
         await prisma.clip.update({ where: { id: c.id }, data: { audioGainDb: gainDb } });
         results.push({ clipId: c.id, filename: c.filename, inputI, gainDb });
       } catch (err) {

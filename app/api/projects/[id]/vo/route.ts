@@ -32,7 +32,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
   const webm = masterWebmPath(projectId);
   const wav = masterWavPath(projectId);
   await writeFile(webm, Buffer.from(await audio.arrayBuffer()));
-  await toWavMono48k(webm, wav);
+  await toWavMono48k(webm, wav, req.signal);
   return Response.json({ ok: true });
 }
 

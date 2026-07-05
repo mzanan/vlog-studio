@@ -42,7 +42,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
     await writeFile(tempPath, Buffer.from(await file.arrayBuffer()));
 
     try {
-      await normalizeClip(tempPath, finalPath);
+      await normalizeClip(tempPath, finalPath, req.signal);
       await rm(tempPath, { force: true });
     } catch (err) {
       // Si la normalización falla, conservamos el original con nombre final como fallback.
@@ -52,11 +52,11 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
       await rm(tempPath, { force: true });
     }
 
-    const probe = await ffprobe(finalPath);
+    const probe = await ffprobe(finalPath, req.signal);
 
     const thumbPath = path.join(targetThumbsDir, `${uuid}.jpg`);
     try {
-      await generateThumbnail(finalPath, thumbPath, Math.min(1, probe.durationMs / 2000));
+      await generateThumbnail(finalPath, thumbPath, Math.min(1, probe.durationMs / 2000), req.signal);
     } catch {
       // thumbnail is non-fatal
     }
