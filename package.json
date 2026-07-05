@@ -26,17 +26,17 @@
     "@remotion/renderer": "^4.0.459",
     "@tabler/icons-react": "^3.44.0",
     "@tanstack/react-query": "^5.100.9",
-    "@types/fluent-ffmpeg": "^2.1.28",
     "better-sqlite3": "^12.9.0",
     "fluent-ffmpeg": "^2.1.3",
     "next": "^16.2.9",
-    "prisma": "^7.8.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "remotion": "^4.0.459"
   },
   "devDependencies": {
+    "@types/fluent-ffmpeg": "^2.1.28",
     "@types/node": "^20.19.40",
+    "prisma": "^7.8.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "typescript": "^5"
