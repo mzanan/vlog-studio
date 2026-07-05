@@ -1,12 +1,13 @@
 import { prisma } from './db';
 import { VOICE_THRESHOLD_WPS, computeWordsPerSec, transcribe } from './transcribe';
+import { runHeavy } from './heavyQueue';
 
 const inFlight = new Set<string>();
 
 export function enqueueTranscribe(clipId: string) {
   if (inFlight.has(clipId)) return;
   inFlight.add(clipId);
-  void runTranscribe(clipId).finally(() => inFlight.delete(clipId));
+  void runHeavy(() => runTranscribe(clipId)).finally(() => inFlight.delete(clipId));
 }
 
 async function runTranscribe(clipId: string) {
