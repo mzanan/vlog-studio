@@ -49,7 +49,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
 
   const probe = await runHeavy(async () => {
     try {
-      await normalizeClip(tempPath, finalPath);
+      await normalizeClip(tempPath, finalPath, req.signal);
       await rm(tempPath, { force: true });
     } catch (err) {
       console.warn(`[ingest] normalize failed for ${originalName}: ${err}`);
@@ -57,9 +57,9 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
       await rename(tempPath, finalPath);
     }
 
-    const result = await ffprobe(finalPath);
+    const result = await ffprobe(finalPath, req.signal);
     try {
-      await generateThumbnail(finalPath, thumbPath, Math.min(1, result.durationMs / 2000));
+      await generateThumbnail(finalPath, thumbPath, Math.min(1, result.durationMs / 2000), req.signal);
     } catch {
       // thumbnail is non-fatal
     }

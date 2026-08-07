@@ -58,7 +58,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
     const filename = `vlog-${timestamp}.mp4`;
     const outputPath = path.join(dir, filename);
 
-    await renderVlog(props, outputPath);
+    await renderVlog(props, outputPath, req.signal);
 
     return Response.json({ filename, durationFrames: props.totalDurationFrames });
   } catch (err) {
