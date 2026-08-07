@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db';
 import { clipsDir, thumbsDir, INBOX_DIR, INBOX_IMPORTED_DIR, VIDEO_EXTENSIONS } from '@/lib/paths';
 import { ffprobe, generateThumbnail, normalizeClip } from '@/lib/ffmpeg';
 import { enqueueTranscribe } from '@/lib/transcribeQueue';
+import { runHeavy } from '@/lib/heavyQueue';
 
 export async function POST(_req: NextRequest, ctx: RouteContext<'/api/projects/[id]/clips/import-inbox'>) {
   const { id: projectId } = await ctx.params;
@@ -43,22 +44,25 @@ export async function POST(_req: NextRequest, ctx: RouteContext<'/api/projects/[
 
       await copyFile(sourcePath, tempPath);
 
-      try {
-        await normalizeClip(tempPath, finalPath);
-        await rm(tempPath, { force: true });
-      } catch (normErr) {
-        console.warn(`[inbox-import] normalize failed for ${originalName}: ${normErr}`);
-        await rm(finalPath, { force: true });
-        await rename(tempPath, finalPath);
-      }
-
-      const probe = await ffprobe(finalPath);
       const thumbPath = path.join(targetThumbsDir, `${uuid}.jpg`);
-      try {
-        await generateThumbnail(finalPath, thumbPath, Math.min(1, probe.durationMs / 2000));
-      } catch {
-        // non-fatal
-      }
+      const probe = await runHeavy(async () => {
+        try {
+          await normalizeClip(tempPath, finalPath);
+          await rm(tempPath, { force: true });
+        } catch (normErr) {
+          console.warn(`[inbox-import] normalize failed for ${originalName}: ${normErr}`);
+          await rm(finalPath, { force: true });
+          await rename(tempPath, finalPath);
+        }
+
+        const result = await ffprobe(finalPath);
+        try {
+          await generateThumbnail(finalPath, thumbPath, Math.min(1, result.durationMs / 2000));
+        } catch {
+          // non-fatal
+        }
+        return result;
+      });
 
       const clip = await prisma.clip.create({
         data: {

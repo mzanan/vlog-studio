@@ -4,9 +4,10 @@ import { useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Dropzone, MIME_TYPES } from '@mantine/dropzone';
-import { Button, Group, Stack, Text } from '@mantine/core';
+import { Button, Group, Progress, Stack, Text } from '@mantine/core';
 import { IconFileImport, IconUpload, IconVideo, IconX } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
+import { useClipUpload } from '@/hooks/useClipUpload';
 
 const VIDEO_MIME = [
   MIME_TYPES.mp4,
@@ -19,22 +20,8 @@ export function IngestDropzone({ projectId }: { projectId: string }) {
   const router = useRouter();
   const qc = useQueryClient();
   const openRef = useRef<() => void>(() => undefined);
-
-  const mutation = useMutation({
-    mutationFn: async (files: File[]) => {
-      const form = new FormData();
-      for (const f of files) form.append('files', f);
-      const res = await fetch(`/api/projects/${projectId}/clips`, { method: 'POST', body: form });
-      if (!res.ok) throw new Error(await res.text());
-      return res.json();
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['clips', projectId] });
-      router.refresh();
-      notifications.show({ color: 'teal', message: 'Clips subidos' });
-    },
-    onError: (err) => notifications.show({ color: 'red', message: `Falló: ${err.message}` }),
-  });
+  const { queue, isUploading, uploadFiles } = useClipUpload(projectId);
+  const doneCount = queue.filter((it) => it.status === 'done' || it.status === 'error').length;
 
   const importInbox = useMutation({
     mutationFn: async () => {
@@ -62,9 +49,9 @@ export function IngestDropzone({ projectId }: { projectId: string }) {
     <Stack gap="sm">
       <Dropzone
         openRef={openRef}
-        onDrop={(files) => mutation.mutate(files)}
+        onDrop={(files) => uploadFiles(files)}
         onReject={() => notifications.show({ color: 'red', message: 'Archivo rechazado (tipo no soportado)' })}
-        loading={mutation.isPending}
+        loading={isUploading}
         accept={VIDEO_MIME}
         multiple
       >
@@ -74,10 +61,17 @@ export function IngestDropzone({ projectId }: { projectId: string }) {
           <Dropzone.Idle><IconVideo size={48} /></Dropzone.Idle>
           <Stack gap={4}>
             <Text size="lg">Arrastrá clips acá o hacé click</Text>
-            <Text size="sm" c="dimmed">MP4, MOV, MKV, WebM</Text>
+            <Text size="sm" c="dimmed">MP4, MOV, MKV, WebM · se suben de a uno</Text>
           </Stack>
         </Group>
       </Dropzone>
+
+      {isUploading && queue.length > 0 && (
+        <Stack gap={4}>
+          <Text size="sm" c="dimmed">Subiendo {doneCount}/{queue.length}…</Text>
+          <Progress value={(doneCount / queue.length) * 100} size="sm" />
+        </Stack>
+      )}
 
       <Group justify="flex-end">
         <Button
