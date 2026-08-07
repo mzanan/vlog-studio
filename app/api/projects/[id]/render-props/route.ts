@@ -1,33 +1,22 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
-import { isValidEdl } from '@/lib/edl';
-import { isValidMusicBlocks } from '@/lib/music';
+import { buildDefaultEdl } from '@/lib/edl';
+import { loadProjectPlan } from '@/lib/project';
 import { buildVlogProps } from '@/lib/render-props';
+import { getBaseUrl } from '@/lib/http';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest, ctx: RouteContext<'/api/projects/[id]/render-props'>) {
   const { id: projectId } = await ctx.params;
 
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    include: { clips: true },
-  });
-  if (!project) return Response.json({ error: 'project not found' }, { status: 404 });
-  if (!isValidEdl(project.edl)) return Response.json({ error: 'sin EDL' }, { status: 409 });
+  const plan = await loadProjectPlan(projectId);
+  if (!plan) return Response.json({ error: 'project not found' }, { status: 404 });
 
-  const blocks = isValidMusicBlocks(project.musicBlocks) ? project.musicBlocks : [];
-  const protocol = req.headers.get('x-forwarded-proto') ?? 'http';
-  const host = req.headers.get('host') ?? 'localhost:3000';
-  const baseUrl = `${protocol}://${host}`;
+  const clips = await prisma.clip.findMany({ where: { projectId }, orderBy: { createdAt: 'asc' } });
+  if (clips.length === 0) return Response.json({ error: 'sin clips' }, { status: 409 });
 
-  const props = await buildVlogProps({
-    projectId,
-    edl: project.edl,
-    musicBlocks: blocks,
-    clips: project.clips,
-    baseUrl,
-  });
-
+  const edl = plan.edl ?? buildDefaultEdl(clips);
+  const props = await buildVlogProps({ projectId, edl, clips, baseUrl: getBaseUrl(req) });
   return Response.json({ props });
 }

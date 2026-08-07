@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-const WHISPER_BIN = process.env.WHISPER_BIN ?? '/Users/zanan/Library/Python/3.9/bin/whisper';
+const WHISPER_BIN = process.env.WHISPER_BIN ?? 'whisper';
 
 export type WhisperWord = { word: string; start: number; end: number };
 export type WhisperSegment = {

@@ -1,5 +1,5 @@
 import { Edl } from '../edl';
-import { PLANNER_SYSTEM, PlanInput, buildUserMessage } from './prompts';
+import { LlmEdl, PlanInput, buildPlannerSystem, buildUserMessage } from './prompts';
 import { generateEdlGemini } from './gemini';
 import { generateEdlAnthropic } from './anthropic';
 
@@ -11,7 +11,7 @@ export function currentProvider(): LlmProvider {
   return 'gemini';
 }
 
-export async function generateEdl(input: PlanInput): Promise<Edl> {
+export async function generateEdl(input: PlanInput): Promise<{ edl: Edl; llmEdl: LlmEdl }> {
   const provider = currentProvider();
   if (provider === 'gemini') return generateEdlGemini(input);
   if (provider === 'anthropic') return generateEdlAnthropic(input);
@@ -19,7 +19,7 @@ export async function generateEdl(input: PlanInput): Promise<Edl> {
 }
 
 export function buildManualPrompt(input: PlanInput): string {
-  return `${PLANNER_SYSTEM}\n\n${buildUserMessage(input)}`;
+  return `${buildPlannerSystem(input.cutPreset)}\n\n${buildUserMessage(input)}`;
 }
 
-export type { PlanInput, ClipForPlanning } from './prompts';
+export type { PlanInput, ClipForPlanning, CutPreset } from './prompts';

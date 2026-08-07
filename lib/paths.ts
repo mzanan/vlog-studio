@@ -21,4 +21,11 @@ export function voDir(projectId: string) {
 export const INBOX_DIR = path.join(DATA_ROOT, 'inbox');
 export const INBOX_IMPORTED_DIR = path.join(INBOX_DIR, 'imported');
 
+export const MUSIC_CACHE_DIR = path.join(DATA_ROOT, 'music-cache');
+export const MUSIC_MANIFEST_PATH = path.join(MUSIC_CACHE_DIR, 'manifest.json');
+
+export function musicTrackPath(trackId: string) {
+  return path.join(MUSIC_CACHE_DIR, `${trackId}.mp3`);
+}
+
 export const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.mkv', '.webm', '.m4v', '.avi']);

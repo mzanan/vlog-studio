@@ -1,10 +1,10 @@
 import { NextRequest } from 'next/server';
-import { mkdir, readdir, rename, copyFile, stat } from 'node:fs/promises';
+import { mkdir, readdir, rename, copyFile, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { prisma } from '@/lib/db';
 import { clipsDir, thumbsDir, INBOX_DIR, INBOX_IMPORTED_DIR, VIDEO_EXTENSIONS } from '@/lib/paths';
-import { ffprobe, generateThumbnail } from '@/lib/ffmpeg';
+import { ffprobe, generateThumbnail, normalizeClip } from '@/lib/ffmpeg';
 import { enqueueTranscribe } from '@/lib/transcribeQueue';
 
 export async function POST(_req: NextRequest, ctx: RouteContext<'/api/projects/[id]/clips/import-inbox'>) {
@@ -36,16 +36,26 @@ export async function POST(_req: NextRequest, ctx: RouteContext<'/api/projects/[
   for (const sourcePath of candidates) {
     try {
       const originalName = path.basename(sourcePath);
+      const uuid = randomUUID();
       const ext = path.extname(originalName).toLowerCase();
-      const filename = `${randomUUID()}${ext}`;
-      const destPath = path.join(targetClipsDir, filename);
+      const tempPath = path.join(targetClipsDir, `${uuid}.raw${ext}`);
+      const finalPath = path.join(targetClipsDir, `${uuid}.mp4`);
 
-      await copyFile(sourcePath, destPath);
+      await copyFile(sourcePath, tempPath);
 
-      const probe = await ffprobe(destPath);
-      const thumbPath = path.join(targetThumbsDir, `${path.parse(filename).name}.jpg`);
       try {
-        await generateThumbnail(destPath, thumbPath, Math.min(1, probe.durationMs / 2000));
+        await normalizeClip(tempPath, finalPath);
+        await rm(tempPath, { force: true });
+      } catch (normErr) {
+        console.warn(`[inbox-import] normalize failed for ${originalName}: ${normErr}`);
+        await rm(finalPath, { force: true });
+        await rename(tempPath, finalPath);
+      }
+
+      const probe = await ffprobe(finalPath);
+      const thumbPath = path.join(targetThumbsDir, `${uuid}.jpg`);
+      try {
+        await generateThumbnail(finalPath, thumbPath, Math.min(1, probe.durationMs / 2000));
       } catch {
         // non-fatal
       }
@@ -54,7 +64,7 @@ export async function POST(_req: NextRequest, ctx: RouteContext<'/api/projects/[
         data: {
           projectId,
           filename: originalName,
-          path: destPath,
+          path: finalPath,
           durationMs: probe.durationMs,
           width: probe.width,
           height: probe.height,
