@@ -34,51 +34,77 @@ async function saveProgress(progress: ChapterImportProgress) {
 }
 
 export async function loadImportProgress(): Promise<ChapterImportProgress | null> {
+  let progress: ChapterImportProgress;
   try {
     const content = await readFile(CHAPTERS_IMPORT_PROGRESS_PATH, 'utf-8');
-    return JSON.parse(content) as ChapterImportProgress;
+    progress = JSON.parse(content) as ChapterImportProgress;
   } catch (err) {
     if (err instanceof Error && 'code' in err && err.code === 'ENOENT') return null;
-    throw err;
+    console.error(`[chapters] unreadable progress file, treating as absent: ${err instanceof Error ? err.message : err}`);
+    return null;
   }
+
+  if (progress.status === 'running' && !running) {
+    progress.status = 'error';
+    progress.error = 'interrupted by server restart';
+    progress.finishedAt = new Date().toISOString();
+    await saveProgress(progress);
+    console.warn('[chapters] found stale running progress, marked as interrupted');
+  }
+  return progress;
 }
 
 export async function startChapterImport(maxChapters?: number): Promise<ChapterImportProgress> {
-  const existing = await loadImportProgress();
-  if (existing?.status === 'running') return existing;
-  if (running) return existing ?? (await loadImportProgress())!;
-
-  const grouping = await loadGrouping();
-  if (!grouping) throw new Error('no saved grouping, generate one first');
-
-  const chapters = maxChapters ? grouping.chapters.slice(0, maxChapters) : grouping.chapters;
-  const totalClips = chapters.reduce((sum, c) => sum + c.clips.length, 0);
-
-  const progress: ChapterImportProgress = {
-    startedAt: new Date().toISOString(),
-    finishedAt: null,
-    status: 'running',
-    error: null,
-    totalClips,
-    doneClips: 0,
-    chapters: chapters.map((c) => ({
-      title: c.title,
-      reason: c.reason,
-      projectId: null,
-      status: 'pending',
-      totalClips: c.clips.length,
-      imported: 0,
-      failed: [],
-    })),
-  };
-  await saveProgress(progress);
-
+  if (running) {
+    const current = await loadImportProgress();
+    if (!current) throw new Error('import already starting');
+    return current;
+  }
   running = true;
-  void runImport(chapters, progress).finally(() => {
-    running = false;
-  });
 
-  return progress;
+  try {
+    const existing = await loadImportProgress();
+    if (existing?.status === 'running') {
+      existing.status = 'error';
+      existing.error = 'interrupted by server restart';
+      existing.finishedAt = new Date().toISOString();
+      await saveProgress(existing);
+    }
+
+    const grouping = await loadGrouping();
+    if (!grouping) throw new Error('no saved grouping, generate one first');
+
+    const chapters = maxChapters ? grouping.chapters.slice(0, maxChapters) : grouping.chapters;
+    const totalClips = chapters.reduce((sum, c) => sum + c.clips.length, 0);
+
+    const progress: ChapterImportProgress = {
+      startedAt: new Date().toISOString(),
+      finishedAt: null,
+      status: 'running',
+      error: null,
+      totalClips,
+      doneClips: 0,
+      chapters: chapters.map((c) => ({
+        title: c.title,
+        reason: c.reason,
+        projectId: null,
+        status: 'pending',
+        totalClips: c.clips.length,
+        imported: 0,
+        failed: [],
+      })),
+    };
+    await saveProgress(progress);
+
+    void runImport(chapters, progress).finally(() => {
+      running = false;
+    });
+
+    return progress;
+  } catch (err) {
+    running = false;
+    throw err;
+  }
 }
 
 async function runImport(chapters: Chapter[], progress: ChapterImportProgress) {

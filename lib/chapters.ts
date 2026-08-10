@@ -46,6 +46,7 @@ export async function loadGrouping(): Promise<SavedGrouping | null> {
     return JSON.parse(content) as SavedGrouping;
   } catch (err) {
     if (err instanceof Error && 'code' in err && err.code === 'ENOENT') return null;
-    throw err;
+    console.error(`[chapters] unreadable grouping file, treating as absent: ${err instanceof Error ? err.message : err}`);
+    return null;
   }
 }
