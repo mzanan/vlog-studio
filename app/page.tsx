@@ -1,6 +1,7 @@
 import { Anchor, Container, Stack, Table, TableTbody, TableTd, TableTh, TableThead, TableTr, Text, Title } from '@mantine/core';
 import { prisma } from '@/lib/db';
 import { NewProjectButton } from './_components/NewProjectButton';
+import { GenerateChaptersButton } from './_components/GenerateChaptersButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +17,7 @@ export default async function Home() {
         <Title order={1}>vlog-studio</Title>
 
         <NewProjectButton />
+        <GenerateChaptersButton />
 
         {projects.length === 0 ? (
           <Text c="dimmed">Sin proyectos aún. Crea uno arriba.</Text>
