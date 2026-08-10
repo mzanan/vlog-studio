@@ -1,6 +1,7 @@
 import { Anchor, Container, Stack, Table, TableTbody, TableTd, TableTh, TableThead, TableTr, Text, Title } from '@mantine/core';
 import { prisma } from '@/lib/db';
 import { loadGrouping } from '@/lib/chapters';
+import { loadImportProgress } from '@/lib/chapterImport';
 import { NewProjectButton } from './_components/NewProjectButton';
 import { GenerateChaptersButton } from './_components/GenerateChaptersButton';
 
@@ -12,6 +13,7 @@ export default async function Home() {
     include: { _count: { select: { clips: true } } },
   });
   const grouping = await loadGrouping();
+  const importProgress = await loadImportProgress();
 
   return (
     <Container size="md" py="xl">
@@ -28,6 +30,7 @@ export default async function Home() {
                 }
               : null
           }
+          initialImportProgress={importProgress}
         />
 
         {projects.length === 0 ? (

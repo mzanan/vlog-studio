@@ -26,6 +26,7 @@ export const MUSIC_MANIFEST_PATH = path.join(MUSIC_CACHE_DIR, 'manifest.json');
 
 export const CHAPTERS_DIR = path.join(DATA_ROOT, 'chapters');
 export const CHAPTERS_GROUPING_PATH = path.join(CHAPTERS_DIR, 'grouping.json');
+export const CHAPTERS_IMPORT_PROGRESS_PATH = path.join(CHAPTERS_DIR, 'import-progress.json');
 
 export function musicTrackPath(trackId: string) {
   return path.join(MUSIC_CACHE_DIR, `${trackId}.mp3`);
