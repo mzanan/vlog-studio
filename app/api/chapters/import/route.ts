@@ -10,7 +10,8 @@ export async function POST(req: NextRequest) {
     return Response.json(progress, { status: 202 });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return Response.json({ error: message }, { status: 404 });
+    const status = message === 'import already starting' ? 409 : 404;
+    return Response.json({ error: message }, { status });
   }
 }
 

@@ -26,7 +26,9 @@ export type ChapterImportProgress = {
   }[];
 };
 
-let running = false;
+const importState = (globalThis as typeof globalThis & {
+  __chapterImportState?: { running: boolean };
+}).__chapterImportState ??= { running: false };
 
 async function saveProgress(progress: ChapterImportProgress) {
   await mkdir(CHAPTERS_DIR, { recursive: true });
@@ -44,7 +46,7 @@ export async function loadImportProgress(): Promise<ChapterImportProgress | null
     return null;
   }
 
-  if (progress.status === 'running' && !running) {
+  if (progress.status === 'running' && !importState.running) {
     progress.status = 'error';
     progress.error = 'interrupted by server restart';
     progress.finishedAt = new Date().toISOString();
@@ -55,12 +57,12 @@ export async function loadImportProgress(): Promise<ChapterImportProgress | null
 }
 
 export async function startChapterImport(maxChapters?: number): Promise<ChapterImportProgress> {
-  if (running) {
+  if (importState.running) {
     const current = await loadImportProgress();
     if (!current) throw new Error('import already starting');
     return current;
   }
-  running = true;
+  importState.running = true;
 
   try {
     const existing = await loadImportProgress();
@@ -97,12 +99,12 @@ export async function startChapterImport(maxChapters?: number): Promise<ChapterI
     await saveProgress(progress);
 
     void runImport(chapters, progress).finally(() => {
-      running = false;
+      importState.running = false;
     });
 
     return progress;
   } catch (err) {
-    running = false;
+    importState.running = false;
     throw err;
   }
 }
