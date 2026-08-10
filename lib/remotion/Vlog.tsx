@@ -6,17 +6,22 @@ const BROLL_AUDIO_VOLUME = 0;
 const VO_VOLUME = 1.0;
 const MUSIC_DUCK_FACTOR = 0.5;
 
-export function Vlog({ width, height, fps, segments, voiceover, musicSections }: VlogInputProps) {
+function buildSegmentBlocks(segments: SegmentProp[], width: number, height: number, fps: number) {
+  const blocks: React.ReactElement[] = [];
   let frameCursor = 0;
-  const segmentBlocks = segments.map((seg, idx) => {
-    const from = frameCursor;
-    frameCursor += seg.durationFrames;
-    return (
-      <Sequence key={`seg-${idx}`} from={from} durationInFrames={seg.durationFrames}>
+  for (const [idx, seg] of segments.entries()) {
+    blocks.push(
+      <Sequence key={`seg-${idx}`} from={frameCursor} durationInFrames={seg.durationFrames}>
         <SegmentVideo segment={seg} canvasWidth={width} canvasHeight={height} fps={fps} />
-      </Sequence>
+      </Sequence>,
     );
-  });
+    frameCursor += seg.durationFrames;
+  }
+  return blocks;
+}
+
+export function Vlog({ width, height, fps, segments, voiceover, musicSections }: VlogInputProps) {
+  const segmentBlocks = buildSegmentBlocks(segments, width, height, fps);
 
   return (
     <AbsoluteFill style={{ backgroundColor: 'black' }}>

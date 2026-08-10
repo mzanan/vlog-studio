@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { searchJamendoMusic } from '@/lib/music-search';
 
-export async function GET(req: NextRequest, _ctx: RouteContext<'/api/projects/[id]/music-search'>) {
+export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const query = url.searchParams.get('query')?.trim();
   const durationMs = Number(url.searchParams.get('durationMs') ?? '0');

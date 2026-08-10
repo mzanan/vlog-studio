@@ -8,7 +8,6 @@ import { SuggestionActions } from './SuggestionActions';
 export function VoTrack({
   cues,
   suggestions,
-  totalMs: _totalMs,
   pxPerSec,
   onAcceptSuggestion,
   onRejectSuggestion,
@@ -16,7 +15,6 @@ export function VoTrack({
 }: {
   cues: EdlVoiceoverCue[];
   suggestions: Suggestion[];
-  totalMs: number;
   pxPerSec: number;
   onAcceptSuggestion: (id: string) => void;
   onRejectSuggestion: (id: string) => void;

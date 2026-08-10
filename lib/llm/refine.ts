@@ -4,7 +4,7 @@
 
 import { GoogleGenAI } from '@google/genai';
 import { Edl } from '../edl';
-import { ChatMessage, Suggestion, SuggestionType } from '../suggestions';
+import { Suggestion, SuggestionType } from '../suggestions';
 
 export type ClipContext = {
   id: string;
