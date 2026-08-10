@@ -3,27 +3,12 @@
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Anchor, Button, Group, List, ListItem, Progress, Stack, Text } from '@mantine/core';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { notifications } from '@mantine/notifications';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useApiMutation } from '@/app/projects/[id]/edit/_components/useApiMutation';
+import type { ChapterImportProgress } from '@/lib/chapterImport';
 
 type ChapterSummary = { title: string; reason: string; clipCount: number };
 type SavedGrouping = { generatedAt: string; chapters: ChapterSummary[] };
-
-type ChapterImportProgress = {
-  status: 'running' | 'done' | 'error';
-  error: string | null;
-  totalClips: number;
-  doneClips: number;
-  chapters: {
-    title: string;
-    reason: string;
-    projectId: string | null;
-    status: 'pending' | 'importing' | 'done';
-    totalClips: number;
-    imported: number;
-    failed: { clip: string; error: string }[];
-  }[];
-};
 
 export function GenerateChaptersButton({
   initialGrouping,
@@ -35,14 +20,13 @@ export function GenerateChaptersButton({
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const generateMutation = useMutation({
+  const generateMutation = useApiMutation<void, SavedGrouping>({
     mutationFn: async () => {
       const res = await fetch('/api/chapters/generate', { method: 'POST' });
-      if (!res.ok) throw new Error('failed');
+      if (!res.ok) throw new Error('Chapter grouping failed');
       return res.json() as Promise<SavedGrouping>;
     },
-    onSuccess: () => router.refresh(),
-    onError: () => notifications.show({ color: 'red', message: 'Chapter grouping failed' }),
+    onSuccessExtra: () => router.refresh(),
   });
 
   const importQuery = useQuery({
@@ -56,21 +40,20 @@ export function GenerateChaptersButton({
     refetchInterval: (query) => (query.state.data?.status === 'running' ? 3000 : false),
   });
 
-  const startImportMutation = useMutation({
+  const startImportMutation = useApiMutation<void, ChapterImportProgress>({
     mutationFn: async () => {
       const res = await fetch('/api/chapters/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ maxChapters: 2 }),
       });
-      if (!res.ok) throw new Error('failed');
+      if (!res.ok) throw new Error('Chapter import failed');
       return res.json() as Promise<ChapterImportProgress>;
     },
-    onSuccess: (data) => {
+    onSuccessExtra: (data) => {
       queryClient.setQueryData(['chapter-import'], data);
       router.refresh();
     },
-    onError: () => notifications.show({ color: 'red', message: 'Chapter import failed' }),
   });
 
   const grouping = generateMutation.data ?? initialGrouping;

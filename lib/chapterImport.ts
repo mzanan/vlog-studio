@@ -1,12 +1,9 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import path from 'node:path';
 import { prisma } from './db';
 import { ingestClipFile } from './ingest';
 import { Chapter, loadGrouping } from './chapters';
-import { CHAPTERS_DIR, CHAPTERS_IMPORT_PROGRESS_PATH } from './paths';
-
-const SOURCE_ROOT = path.join(homedir(), 'Movies', 'phone-camera', '2026', 'horizontal-1080', '1. tokio');
+import { CHAPTER_SOURCE_ROOT, CHAPTERS_DIR, CHAPTERS_IMPORT_PROGRESS_PATH } from './paths';
 
 export type ChapterImportProgress = {
   startedAt: string;
@@ -124,7 +121,7 @@ async function runImport(chapters: Chapter[], progress: ChapterImportProgress) {
       await saveProgress(progress);
 
       for (const tag of chapter.clips) {
-        const sourcePath = path.join(SOURCE_ROOT, tag.dia, `${tag.clip}.mp4`);
+        const sourcePath = path.join(CHAPTER_SOURCE_ROOT, tag.dia, `${tag.clip}.mp4`);
         try {
           await ingestClipFile(project.id, sourcePath, `${tag.clip}.mp4`, undefined, true);
           entry.imported++;

@@ -1,5 +1,6 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { CHAPTERS_DIR, CHAPTERS_GROUPING_PATH } from './paths';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { CHAPTERS_DIR, CHAPTERS_GROUPING_PATH, VISION_TAGS_DIR } from './paths';
 
 export type VisionTag = {
   escena: string;
@@ -18,6 +19,18 @@ export type Chapter = {
   clips: VisionTag[];
   reason: string;
 };
+
+export async function loadVisionTags(): Promise<VisionTag[]> {
+  const files = (await readdir(VISION_TAGS_DIR)).filter((f) => f.endsWith('.jsonl'));
+  const all: VisionTag[] = [];
+  for (const file of files) {
+    const content = await readFile(path.join(VISION_TAGS_DIR, file), 'utf-8');
+    for (const line of content.trim().split('\n')) {
+      if (line) all.push(JSON.parse(line) as VisionTag);
+    }
+  }
+  return all;
+}
 
 const CLIP_TIMESTAMP_RE = /^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})$/;
 
