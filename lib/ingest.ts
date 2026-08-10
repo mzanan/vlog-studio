@@ -56,6 +56,7 @@ export async function ingestClipFile(
       height: probe.height,
       fps: probe.fps,
       thumbnailPath: thumbPath,
+      transcribedAt: skipTranscription ? new Date() : null,
     },
   });
 
