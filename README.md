@@ -28,7 +28,8 @@ npm run dev
 
 ## Ingest
 
-Dos caminos:
+Tres caminos:
 
 1. **Drag & drop** en `/projects/<id>/ingest`: arrastrás clips al dropzone.
 2. **Inbox**: copiás archivos (AirDrop, manual, lo que sea) a `data/inbox/`, después click **"Importar inbox"**. Los procesados se mueven a `data/inbox/imported/`.
+3. **Capítulos**: desde el home, el LLM agrupa los clips taggeados (vision tags en `data/vision-tags/`) en capítulos y guarda el resultado en `data/chapters/grouping.json`; "Import chapters" crea un Project por capítulo y los ingesta en background (sin whisper, son b-roll en su mayoría) con progreso en vivo que sobrevive al refresh.
