@@ -33,7 +33,8 @@ export function diffEdls(currentEdl: Edl, resolvedLlmEdl: Edl): DiffEntry[] {
   // Música: solo proponemos sections si el user no tiene ninguna.
   if (currentEdl.music.sections.length === 0) {
     for (const sec of resolvedLlmEdl.music.sections) {
-      const { id: _omit, ...rest } = sec;
+      const { id, ...rest } = sec;
+      void id;
       entries.push({
         body: { type: 'add-music-section', data: { section: rest } },
         rationale: sec.reason || `${sec.mood} · ${sec.energy}`,

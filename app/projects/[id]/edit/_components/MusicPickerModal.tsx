@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Anchor,
@@ -56,33 +56,16 @@ export function MusicPickerModal({
 }) {
   const mode: 'edit' | 'new' | 'none' = section ? 'edit' : newSection ? 'new' : 'none';
 
+  // Estado inicializado desde section/newSection. El caller (Timeline.tsx) le
+  // pasa un `key` que cambia en cada apertura, remontando el componente en
+  // vez de resetear el estado en un effect.
   const [selected, setSelected] = useState<JamendoTrack | null>(null);
-  const [baseVolume, setBaseVolume] = useState(0.15);
+  const [baseVolume, setBaseVolume] = useState(section?.baseVolume ?? 0.15);
   const [playingId, setPlayingId] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
-  const [appliedQuery, setAppliedQuery] = useState('');
-  const [mood, setMood] = useState('');
-  const [energy, setEnergy] = useState<Energy>('mid');
-
-  // Reset cuando abre. Default query/mood/energy depende del modo.
-  useEffect(() => {
-    if (!opened) return;
-    setSelected(null);
-    setPlayingId(null);
-    if (section) {
-      setQuery(section.query);
-      setAppliedQuery(section.query);
-      setMood(section.mood);
-      setEnergy((section.energy as Energy) ?? 'mid');
-      setBaseVolume(section.baseVolume);
-    } else if (newSection) {
-      setQuery('');
-      setAppliedQuery('');
-      setMood('');
-      setEnergy('mid');
-      setBaseVolume(0.15);
-    }
-  }, [opened, section, newSection]);
+  const [query, setQuery] = useState(section?.query ?? '');
+  const [appliedQuery, setAppliedQuery] = useState(section?.query ?? '');
+  const [mood, setMood] = useState(section?.mood ?? '');
+  const [energy, setEnergy] = useState<Energy>((section?.energy as Energy) ?? 'mid');
 
   const durationMs = section?.durationMs ?? (newSection ? newSection.endMs - newSection.startMs : 0);
 

@@ -10,6 +10,7 @@ import { Edl } from '@/lib/edl';
 import { Suggestion } from '@/lib/suggestions';
 import { CutPreset } from '@/lib/llm';
 import { VlogInputProps } from '@/lib/remotion/types';
+import { useLocalStorageValue, setLocalStorageValue } from '@/hooks/useLocalStorageValue';
 import { EditorPlayer } from './EditorPlayer';
 import { Timeline } from './Timeline';
 import { useApiMutation } from './useApiMutation';
@@ -17,6 +18,10 @@ import { EditDropzone } from './EditDropzone';
 import { VoRecordModal } from './VoRecordModal';
 import { SuggestionsPanel } from './SuggestionsPanel';
 import { SuggestionChatModal } from './SuggestionChatModal';
+
+function parseCutPreset(raw: string | null): CutPreset {
+  return raw === 'conservative' || raw === 'balanced' || raw === 'aggressive' ? raw : 'balanced';
+}
 
 export type ClipMeta = {
   id: string;
@@ -82,18 +87,8 @@ export function Editor({
 
   // Cut preset: persiste por proyecto en localStorage (no requiere DB).
   const cutPresetKey = `vlog-studio:cutPreset:${projectId}`;
-  const [cutPreset, setCutPreset] = useState<CutPreset>('balanced');
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const stored = window.localStorage.getItem(cutPresetKey);
-    if (stored === 'conservative' || stored === 'balanced' || stored === 'aggressive') {
-      setCutPreset(stored);
-    }
-  }, [cutPresetKey]);
-  const updateCutPreset = (next: CutPreset) => {
-    setCutPreset(next);
-    if (typeof window !== 'undefined') window.localStorage.setItem(cutPresetKey, next);
-  };
+  const cutPreset = useLocalStorageValue(cutPresetKey, parseCutPreset);
+  const updateCutPreset = (next: CutPreset) => setLocalStorageValue(cutPresetKey, next);
 
   const planQuery = useQuery({
     queryKey: ['edl', projectId],

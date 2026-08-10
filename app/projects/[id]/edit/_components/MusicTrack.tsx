@@ -60,7 +60,7 @@ export function MusicTrack({
     // Snap a una ventana de DEFAULT_NEW_SECTION_MS centrada en ms, pero contenida en el gap.
     const half = DEFAULT_NEW_SECTION_MS / 2;
     let start = Math.max(gapStart, ms - half);
-    let end = Math.min(gapEnd, start + DEFAULT_NEW_SECTION_MS);
+    const end = Math.min(gapEnd, start + DEFAULT_NEW_SECTION_MS);
     start = Math.max(gapStart, end - DEFAULT_NEW_SECTION_MS);
     return { startMs: start, endMs: end };
   };

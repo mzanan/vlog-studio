@@ -6,6 +6,7 @@ import { IconZoomIn, IconZoomOut } from '@tabler/icons-react';
 import { PlayerRef } from '@remotion/player';
 import { Edl, EdlSegment, MusicSection, segmentDurationMs } from '@/lib/edl';
 import { Suggestion, SuggestionType } from '@/lib/suggestions';
+import { useLocalStorageValue, setLocalStorageValue } from '@/hooks/useLocalStorageValue';
 import { ClipMeta } from './Editor';
 import { VideoTrack, VideoSegmentItem } from './VideoTrack';
 import { MusicTrack } from './MusicTrack';
@@ -23,6 +24,11 @@ const STACK_GAP = 6;
 const MIN_PX_PER_SEC = 15;
 const MAX_PX_PER_SEC = 200;
 const ZOOM_STEP = 1.4;
+
+function parsePxPerSec(raw: string | null): number {
+  const n = raw ? Number(raw) : NaN;
+  return Number.isFinite(n) && n >= MIN_PX_PER_SEC && n <= MAX_PX_PER_SEC ? n : DEFAULT_PX_PER_SEC;
+}
 
 const VIDEO_TYPES: SuggestionType[] = ['trim-segment', 'split-segment', 'hide-clip'];
 const MUSIC_TYPES: SuggestionType[] = ['add-music-section', 'replace-music-track'];
@@ -51,21 +57,10 @@ export function Timeline({
 }) {
   // Zoom: persiste por proyecto en localStorage.
   const zoomKey = `vlog-studio:zoom:${projectId}`;
-  const [pxPerSec, setPxPerSec] = useState(DEFAULT_PX_PER_SEC);
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const stored = window.localStorage.getItem(zoomKey);
-    if (stored) {
-      const n = Number(stored);
-      if (Number.isFinite(n) && n >= MIN_PX_PER_SEC && n <= MAX_PX_PER_SEC) setPxPerSec(n);
-    }
-  }, [zoomKey]);
+  const pxPerSec = useLocalStorageValue(zoomKey, parsePxPerSec);
   const updateZoom = (factor: number) => {
-    setPxPerSec((prev) => {
-      const next = Math.max(MIN_PX_PER_SEC, Math.min(MAX_PX_PER_SEC, prev * factor));
-      if (typeof window !== 'undefined') window.localStorage.setItem(zoomKey, String(next));
-      return next;
-    });
+    const next = Math.max(MIN_PX_PER_SEC, Math.min(MAX_PX_PER_SEC, pxPerSec * factor));
+    setLocalStorageValue(zoomKey, String(next));
   };
 
   const videoItems = useMemo<VideoSegmentItem[]>(
@@ -161,6 +156,13 @@ export function Timeline({
 
   const [pickerSection, setPickerSection] = useState<SectionMeta | null>(null);
   const [pickerNew, setPickerNew] = useState<NewSectionMeta | null>(null);
+  // Se recuerda el key del último target abierto para no cambiarlo al cerrar:
+  // eso mantendría montado el mismo MusicPickerModal durante su transición de
+  // salida en vez de desmontarlo en seco. Patrón "storing information from
+  // previous renders" de React: setState condicional durante el render.
+  const [pickerKey, setPickerKey] = useState('closed');
+  const pickerOpenKey = pickerSection?.id ?? (pickerNew ? `new-${pickerNew.startMs}-${pickerNew.endMs}` : null);
+  if (pickerOpenKey !== null && pickerOpenKey !== pickerKey) setPickerKey(pickerOpenKey);
 
   const handlePickMusic = (sec: MusicSection) => {
     setPickerSection({
@@ -254,7 +256,6 @@ export function Timeline({
                 <VoTrack
                   cues={edl.voiceover.cues}
                   suggestions={voSuggestions}
-                  totalMs={totalMs}
                   pxPerSec={pxPerSec}
                   onAcceptSuggestion={onAcceptSug}
                   onRejectSuggestion={onRejectSug}
@@ -277,6 +278,7 @@ export function Timeline({
         </ScrollArea>
       </Stack>
       <MusicPickerModal
+        key={pickerKey}
         projectId={projectId}
         section={pickerSection}
         newSection={pickerNew}
