@@ -24,6 +24,9 @@ export const INBOX_IMPORTED_DIR = path.join(INBOX_DIR, 'imported');
 export const MUSIC_CACHE_DIR = path.join(DATA_ROOT, 'music-cache');
 export const MUSIC_MANIFEST_PATH = path.join(MUSIC_CACHE_DIR, 'manifest.json');
 
+export const CHAPTERS_DIR = path.join(DATA_ROOT, 'chapters');
+export const CHAPTERS_GROUPING_PATH = path.join(CHAPTERS_DIR, 'grouping.json');
+
 export function musicTrackPath(trackId: string) {
   return path.join(MUSIC_CACHE_DIR, `${trackId}.mp3`);
 }

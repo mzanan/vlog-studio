@@ -1,5 +1,6 @@
 import { Anchor, Container, Stack, Table, TableTbody, TableTd, TableTh, TableThead, TableTr, Text, Title } from '@mantine/core';
 import { prisma } from '@/lib/db';
+import { loadGrouping } from '@/lib/chapters';
 import { NewProjectButton } from './_components/NewProjectButton';
 import { GenerateChaptersButton } from './_components/GenerateChaptersButton';
 
@@ -10,6 +11,7 @@ export default async function Home() {
     orderBy: { updatedAt: 'desc' },
     include: { _count: { select: { clips: true } } },
   });
+  const grouping = await loadGrouping();
 
   return (
     <Container size="md" py="xl">
@@ -17,7 +19,16 @@ export default async function Home() {
         <Title order={1}>vlog-studio</Title>
 
         <NewProjectButton />
-        <GenerateChaptersButton />
+        <GenerateChaptersButton
+          initialGrouping={
+            grouping
+              ? {
+                  generatedAt: grouping.generatedAt,
+                  chapters: grouping.chapters.map((c) => ({ title: c.title, reason: c.reason, clipCount: c.clips.length })),
+                }
+              : null
+          }
+        />
 
         {projects.length === 0 ? (
           <Text c="dimmed">Sin proyectos aún. Crea uno arriba.</Text>

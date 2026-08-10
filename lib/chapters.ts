@@ -1,3 +1,6 @@
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { CHAPTERS_DIR, CHAPTERS_GROUPING_PATH } from './paths';
+
 export type VisionTag = {
   escena: string;
   lugar_tipo: string;
@@ -23,4 +26,26 @@ export function parseClipTimestamp(clip: string): number {
   if (!match) throw new Error(`invalid clip timestamp: ${clip}`);
   const [, y, mo, d, h, mi, s] = match;
   return Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s));
+}
+
+export type SavedGrouping = {
+  generatedAt: string;
+  chapters: Chapter[];
+};
+
+export async function saveGrouping(chapters: Chapter[]): Promise<SavedGrouping> {
+  const grouping: SavedGrouping = { generatedAt: new Date().toISOString(), chapters };
+  await mkdir(CHAPTERS_DIR, { recursive: true });
+  await writeFile(CHAPTERS_GROUPING_PATH, JSON.stringify(grouping, null, 2), 'utf-8');
+  return grouping;
+}
+
+export async function loadGrouping(): Promise<SavedGrouping | null> {
+  try {
+    const content = await readFile(CHAPTERS_GROUPING_PATH, 'utf-8');
+    return JSON.parse(content) as SavedGrouping;
+  } catch (err) {
+    if (err instanceof Error && 'code' in err && err.code === 'ENOENT') return null;
+    throw err;
+  }
 }
