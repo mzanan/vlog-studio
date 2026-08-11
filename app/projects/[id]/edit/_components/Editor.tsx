@@ -13,6 +13,7 @@ import { CutPreset } from '@/lib/llm';
 import { VlogInputProps } from '@/lib/remotion/types';
 import { useLocalStorageValue, setLocalStorageValue } from '@/hooks/useLocalStorageValue';
 import { requirePlanVersion, syncPlanCache } from '@/lib/plan-version';
+import { showExportResultNotification } from '@/lib/export-notifications';
 import { EditorPlayer } from './EditorPlayer';
 import { Timeline } from './Timeline';
 import { useApiMutation } from './useApiMutation';
@@ -145,7 +146,7 @@ export function Editor({
       const res = await fetch(`/api/projects/${projectId}/export`, { method: 'POST' });
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error ?? 'falló');
-      return body as { filename: string };
+      return body as { filename: string; warnings: string[] };
     },
     onMutate: () => {
       notifications.show({
@@ -159,12 +160,7 @@ export function Editor({
     },
     onSuccess: (body) => {
       notifications.hide(`render-${projectId}`);
-      notifications.show({
-        color: 'teal',
-        title: 'Render listo',
-        message: body.filename,
-        autoClose: 6000,
-      });
+      showExportResultNotification(body);
     },
     onError: (err) => {
       notifications.hide(`render-${projectId}`);

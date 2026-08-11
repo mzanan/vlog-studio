@@ -3,7 +3,7 @@
 // narrativas en tiempo absoluto (no atadas a segmentIdx), trim semántico con
 // cutReason obligatorio, orden propuesto + originalOrder.
 
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 
 export type EdlClipSegment = {
   id: string;
@@ -33,7 +33,18 @@ export type EdlVoiceoverCue = {
 export type EdlVoiceover = {
   fullScript: string;
   cues: EdlVoiceoverCue[];
+  // Fingerprint del script+cues en el momento en que se grabó `vo/master.wav`.
+  // Sin esto, agregar/editar cues después de grabar deja narración sin cobertura
+  // y el chequeo de "VO faltante" en export no lo detecta (el archivo sigue existiendo).
+  recordedFingerprint?: string;
 };
+
+export function voiceoverFingerprint(v: Pick<EdlVoiceover, 'fullScript' | 'cues'>): string {
+  return createHash('sha256')
+    .update(JSON.stringify({ fullScript: v.fullScript, cues: v.cues }))
+    .digest('hex')
+    .slice(0, 16);
+}
 
 export type Energy = 'low' | 'mid' | 'high';
 

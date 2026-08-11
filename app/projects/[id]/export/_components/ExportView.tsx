@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Anchor, Badge, Button, Card, Group, Loader, Stack, Text } from '@mantine/core';
 import { IconDownload, IconVideo } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
+import { showExportResultNotification } from '@/lib/export-notifications';
 
 type ExportFile = { filename: string; sizeBytes: number; modifiedAt: string };
 
@@ -29,7 +30,7 @@ export function ExportView({ projectId }: { projectId: string }) {
       const res = await fetch(`/api/projects/${projectId}/export`, { method: 'POST' });
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error ?? 'falló');
-      return body as { filename: string; durationFrames: number };
+      return body as { filename: string; durationFrames: number; warnings: string[] };
     },
     onMutate: () => {
       notifications.show({
@@ -44,12 +45,7 @@ export function ExportView({ projectId }: { projectId: string }) {
     onSuccess: (body) => {
       notifications.hide(`render-${projectId}`);
       qc.invalidateQueries({ queryKey: ['exports', projectId] });
-      notifications.show({
-        color: 'teal',
-        title: 'Render listo',
-        message: body.filename,
-        autoClose: 5000,
-      });
+      showExportResultNotification(body);
     },
     onError: (err) => {
       notifications.hide(`render-${projectId}`);

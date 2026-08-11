@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import path from 'node:path';
 import { mkdir, readdir, stat } from 'node:fs/promises';
 import { prisma } from '@/lib/db';
-import { isValidEdl } from '@/lib/edl';
+import { isValidEdl, voiceoverFingerprint } from '@/lib/edl';
 import { projectDir } from '@/lib/paths';
 import { buildVlogProps } from '@/lib/render-props';
 import { renderVlog } from '@/lib/render';
@@ -60,7 +60,29 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
 
     await renderVlog(props, outputPath, req.signal);
 
-    return Response.json({ filename, durationFrames: props.totalDurationFrames });
+    // El render nunca falla por música/VO faltante (fallback a silencio), así que
+    // hay que detectarlo acá y avisar: sin esto el export vuelve 200 con un mp4
+    // que parece completo pero le falta narración o música, sin ninguna señal.
+    const warnings: string[] = [];
+    for (const s of project.edl.music.sections) {
+      if (!s.trackId) {
+        const startSec = Math.round(s.startMs / 1000);
+        const endSec = Math.round(s.endMs / 1000);
+        warnings.push(`Música sin resolver en "${s.mood}" (${startSec}s-${endSec}s): esa sección queda en silencio.`);
+      }
+    }
+    if (project.edl.voiceover.cues.length > 0) {
+      if (!props.voiceover.audioUrl) {
+        warnings.push(`Hay ${project.edl.voiceover.cues.length} cues de voiceover planeados pero no se grabó audio: el export queda sin narración.`);
+      } else if (
+        project.edl.voiceover.recordedFingerprint &&
+        project.edl.voiceover.recordedFingerprint !== voiceoverFingerprint(project.edl.voiceover)
+      ) {
+        warnings.push('El guión de voiceover cambió después de la última grabación: la narración puede no cubrir las cues actuales, considerá re-grabar.');
+      }
+    }
+
+    return Response.json({ filename, durationFrames: props.totalDurationFrames, warnings });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return Response.json({ error: message }, { status: 500 });
