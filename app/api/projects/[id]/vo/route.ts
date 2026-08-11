@@ -1,6 +1,9 @@
 import { NextRequest } from 'next/server';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { prisma } from '@/lib/db';
+import { Prisma } from '@/lib/generated/prisma/client';
+import { isValidEdl, voiceoverFingerprint } from '@/lib/edl';
 import { voDir } from '@/lib/paths';
 import { toWavMono48k } from '@/lib/ffmpeg';
 import { serveFile } from '@/lib/http';
@@ -33,6 +36,19 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
   const wav = masterWavPath(projectId);
   await writeFile(webm, Buffer.from(await audio.arrayBuffer()));
   await toWavMono48k(webm, wav, req.signal);
+
+  const project = await prisma.project.findUnique({ where: { id: projectId }, select: { edl: true } });
+  if (project && isValidEdl(project.edl)) {
+    const updatedEdl = {
+      ...project.edl,
+      voiceover: { ...project.edl.voiceover, recordedFingerprint: voiceoverFingerprint(project.edl.voiceover) },
+    };
+    await prisma.project.update({
+      where: { id: projectId },
+      data: { edl: updatedEdl as unknown as Prisma.InputJsonValue },
+    });
+  }
+
   return Response.json({ ok: true });
 }
 
