@@ -3,7 +3,7 @@ import { Prisma } from '@/lib/generated/prisma/client';
 import { loadProjectPlan } from '@/lib/project';
 import { applySuggestion, Suggestion, SuggestionApplyError } from '@/lib/suggestions';
 import { populateMusicSections } from '@/lib/music-search';
-import { updateProjectIfFresh, StaleWriteError } from '@/lib/concurrency';
+import { updateProjectIfFresh, parseExpectedPlanVersion, staleWriteResponse } from '@/lib/concurrency';
 
 const MUSIC_TYPES = new Set(['add-music-section', 'replace-music-track']);
 
@@ -12,11 +12,9 @@ export async function POST(
   ctx: RouteContext<'/api/projects/[id]/suggestions/[suggestionId]/accept'>,
 ) {
   const { id: projectId, suggestionId } = await ctx.params;
-  const body = (await req.json().catch(() => ({}))) as { expectedPlanVersion?: number };
-  if (!Number.isInteger(body.expectedPlanVersion) || (body.expectedPlanVersion as number) < 0) {
-    return Response.json({ error: 'falta expectedPlanVersion' }, { status: 400 });
-  }
-  const expectedPlanVersion = body.expectedPlanVersion as number;
+  const body = await req.json().catch(() => ({}));
+  const expectedPlanVersion = parseExpectedPlanVersion(body);
+  if (expectedPlanVersion === null) return Response.json({ error: 'falta expectedPlanVersion' }, { status: 400 });
 
   const plan = await loadProjectPlan(projectId);
   if (!plan) return Response.json({ error: 'project not found' }, { status: 404 });
@@ -42,9 +40,8 @@ export async function POST(
         });
         return Response.json({ error: err.message, suggestion: 'stale', suggestions: updated, planVersion }, { status: 409 });
       } catch (staleErr) {
-        if (staleErr instanceof StaleWriteError) {
-          return Response.json({ error: staleErr.message, conflict: true }, { status: 409 });
-        }
+        const conflict = staleWriteResponse(staleErr);
+        if (conflict) return conflict;
         throw staleErr;
       }
     }
@@ -66,7 +63,8 @@ export async function POST(
       suggestions: updated as unknown as Prisma.InputJsonValue,
     });
   } catch (err) {
-    if (err instanceof StaleWriteError) return Response.json({ error: err.message, conflict: true }, { status: 409 });
+    const conflict = staleWriteResponse(err);
+    if (conflict) return conflict;
     throw err;
   }
 

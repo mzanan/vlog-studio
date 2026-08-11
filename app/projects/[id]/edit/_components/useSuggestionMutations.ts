@@ -2,19 +2,13 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useApiMutation } from './useApiMutation';
-import { PlanResponse } from './Editor';
-
-function requirePlanVersion(qc: ReturnType<typeof useQueryClient>, projectId: string): number {
-  const planVersion = qc.getQueryData<PlanResponse>(['edl', projectId])?.planVersion;
-  if (typeof planVersion !== 'number') throw new Error('estado del proyecto no cargado todavía, esperá y reintentá');
-  return planVersion;
-}
+import { requirePlanVersion, syncPlanCache } from '@/lib/plan-version';
 
 export function useSuggestionMutations(projectId: string, onChanged: () => void) {
   const qc = useQueryClient();
   const invalidateKeys = [['edl', projectId], ['render-props', projectId]];
   const errorInvalidateKeys = [['edl', projectId]];
-  const syncPlanCache = { projectId };
+  const onSuccessCache = (result: unknown) => syncPlanCache(qc, projectId, result);
 
   const accept = useApiMutation({
     mutationFn: async (suggestionId: string) => {
@@ -32,7 +26,7 @@ export function useSuggestionMutations(projectId: string, onChanged: () => void)
     },
     invalidateKeys,
     errorInvalidateKeys,
-    syncPlanCache,
+    onSuccessCache,
     onSuccessExtra: () => onChanged(),
     errorAutoClose: 6000,
   });
@@ -53,7 +47,7 @@ export function useSuggestionMutations(projectId: string, onChanged: () => void)
     },
     invalidateKeys,
     errorInvalidateKeys,
-    syncPlanCache,
+    onSuccessCache,
     onSuccessExtra: () => onChanged(),
     errorAutoClose: 6000,
   });
@@ -71,7 +65,7 @@ export function useSuggestionMutations(projectId: string, onChanged: () => void)
     },
     invalidateKeys,
     errorInvalidateKeys,
-    syncPlanCache,
+    onSuccessCache,
     onSuccessExtra: () => onChanged(),
     errorAutoClose: 6000,
   });

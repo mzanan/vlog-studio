@@ -8,9 +8,11 @@ import { notifications } from '@mantine/notifications';
 import { PlayerRef } from '@remotion/player';
 import { Edl } from '@/lib/edl';
 import { Suggestion } from '@/lib/suggestions';
+import { PlanResponse } from '@/lib/project';
 import { CutPreset } from '@/lib/llm';
 import { VlogInputProps } from '@/lib/remotion/types';
 import { useLocalStorageValue, setLocalStorageValue } from '@/hooks/useLocalStorageValue';
+import { requirePlanVersion, syncPlanCache } from '@/lib/plan-version';
 import { EditorPlayer } from './EditorPlayer';
 import { Timeline } from './Timeline';
 import { useApiMutation } from './useApiMutation';
@@ -29,13 +31,6 @@ export type ClipMeta = {
   durationMs: number;
   hasVoice: boolean;
   transcribedAt: string | null;
-};
-
-export type PlanResponse = {
-  edl: Edl | null;
-  suggestions: Suggestion[];
-  isDefault: boolean;
-  planVersion: number | null;
 };
 
 export function Editor({
@@ -117,12 +112,10 @@ export function Editor({
 
   const generatePlan = useApiMutation({
     mutationFn: async () => {
-      const expectedPlanVersion = planQuery.data?.planVersion;
-      if (typeof expectedPlanVersion !== 'number') throw new Error('estado del proyecto no cargado todavía, esperá y reintentá');
       const res = await fetch(`/api/projects/${projectId}/plan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cutPreset, expectedPlanVersion }),
+        body: JSON.stringify({ cutPreset, expectedPlanVersion: requirePlanVersion(qc, projectId) }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error ?? 'falló');
@@ -130,7 +123,7 @@ export function Editor({
     },
     invalidateKeys: [['render-props', projectId]],
     errorInvalidateKeys: [['edl', projectId]],
-    syncPlanCache: { projectId },
+    onSuccessCache: (result) => syncPlanCache(qc, projectId, result),
     successMessage: 'Sugerencias AI generadas, revisalas en la timeline o en el panel',
     onSuccessExtra: () => setPanelOpen(true),
   });

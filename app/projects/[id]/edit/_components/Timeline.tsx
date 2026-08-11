@@ -8,12 +8,13 @@ import { PlayerRef } from '@remotion/player';
 import { Edl, EdlSegment, MusicSection, segmentDurationMs } from '@/lib/edl';
 import { Suggestion, SuggestionType } from '@/lib/suggestions';
 import { useLocalStorageValue, setLocalStorageValue } from '@/hooks/useLocalStorageValue';
-import { ClipMeta, PlanResponse } from './Editor';
+import { ClipMeta } from './Editor';
 import { VideoTrack, VideoSegmentItem } from './VideoTrack';
 import { MusicTrack } from './MusicTrack';
 import { VoTrack } from './VoTrack';
 import { useApiMutation } from './useApiMutation';
 import { useSuggestionMutations } from './useSuggestionMutations';
+import { requirePlanVersion, syncPlanCache } from '@/lib/plan-version';
 import { MusicPickerModal, NewSectionMeta, SectionMeta } from './MusicPickerModal';
 import { Playhead } from './Playhead';
 
@@ -117,12 +118,10 @@ export function Timeline({
 
   const patchEdl = useApiMutation({
     mutationFn: async (newEdl: Edl) => {
-      const expectedPlanVersion = qc.getQueryData<PlanResponse>(['edl', projectId])?.planVersion;
-      if (typeof expectedPlanVersion !== 'number') throw new Error('estado del proyecto no cargado todavía, esperá y reintentá');
       const res = await fetch(`/api/projects/${projectId}/plan`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ edl: newEdl, expectedPlanVersion }),
+        body: JSON.stringify({ edl: newEdl, expectedPlanVersion: requirePlanVersion(qc, projectId) }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error ?? 'falló');
@@ -130,7 +129,7 @@ export function Timeline({
     },
     invalidateKeys: [['render-props', projectId]],
     errorInvalidateKeys: [['edl', projectId]],
-    syncPlanCache: { projectId },
+    onSuccessCache: (result) => syncPlanCache(qc, projectId, result),
     onSuccessExtra: () => onChanged(),
     errorAutoClose: 6000,
   });

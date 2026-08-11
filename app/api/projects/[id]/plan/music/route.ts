@@ -4,7 +4,7 @@ import { Prisma } from '@/lib/generated/prisma/client';
 import { Edl, MusicSection, defaultBaseVolumeFor, Energy } from '@/lib/edl';
 import { loadProjectPlan } from '@/lib/project';
 import { downloadTrack, JamendoTrack } from '@/lib/music-search';
-import { updateProjectIfFresh, StaleWriteError } from '@/lib/concurrency';
+import { updateProjectIfFresh, parseExpectedPlanVersion, staleWriteResponse } from '@/lib/concurrency';
 
 type CreateBody = {
   startMs: number;
@@ -32,9 +32,8 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
     return Response.json({ error: 'energy inválida' }, { status: 400 });
   }
   if (!body.track?.trackId) return Response.json({ error: 'falta track' }, { status: 400 });
-  if (!Number.isInteger(body.expectedPlanVersion) || (body.expectedPlanVersion as number) < 0) {
-    return Response.json({ error: 'falta expectedPlanVersion' }, { status: 400 });
-  }
+  const expectedPlanVersion = parseExpectedPlanVersion(body);
+  if (expectedPlanVersion === null) return Response.json({ error: 'falta expectedPlanVersion' }, { status: 400 });
 
   const plan = await loadProjectPlan(projectId);
   if (!plan?.edl) return Response.json({ error: 'sin EDL editable' }, { status: 409 });
@@ -66,11 +65,12 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
 
   let planVersion: number;
   try {
-    planVersion = await updateProjectIfFresh(projectId, body.expectedPlanVersion as number, {
+    planVersion = await updateProjectIfFresh(projectId, expectedPlanVersion, {
       edl: updated as unknown as Prisma.InputJsonValue,
     });
   } catch (err) {
-    if (err instanceof StaleWriteError) return Response.json({ error: err.message, conflict: true }, { status: 409 });
+    const conflict = staleWriteResponse(err);
+    if (conflict) return conflict;
     throw err;
   }
 

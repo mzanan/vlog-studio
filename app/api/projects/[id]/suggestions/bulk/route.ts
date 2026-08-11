@@ -4,7 +4,7 @@ import { loadProjectPlan } from '@/lib/project';
 import { Edl } from '@/lib/edl';
 import { applySuggestion, Suggestion, SuggestionApplyError } from '@/lib/suggestions';
 import { populateMusicSections } from '@/lib/music-search';
-import { updateProjectIfFresh, StaleWriteError } from '@/lib/concurrency';
+import { updateProjectIfFresh, parseExpectedPlanVersion, staleWriteResponse } from '@/lib/concurrency';
 
 const MUSIC_TYPES = new Set(['add-music-section', 'replace-music-track']);
 
@@ -26,9 +26,8 @@ export async function POST(
   if (body.action !== 'accept' && body.action !== 'reject') {
     return Response.json({ error: 'action inválida' }, { status: 400 });
   }
-  if (!Number.isInteger(body.expectedPlanVersion) || (body.expectedPlanVersion as number) < 0) {
-    return Response.json({ error: 'falta expectedPlanVersion' }, { status: 400 });
-  }
+  const expectedPlanVersion = parseExpectedPlanVersion(body);
+  if (expectedPlanVersion === null) return Response.json({ error: 'falta expectedPlanVersion' }, { status: 400 });
 
   const plan = await loadProjectPlan(projectId);
   if (!plan) return Response.json({ error: 'project not found' }, { status: 404 });
@@ -48,11 +47,12 @@ export async function POST(
     });
     let planVersion: number;
     try {
-      planVersion = await updateProjectIfFresh(projectId, body.expectedPlanVersion as number, {
+      planVersion = await updateProjectIfFresh(projectId, expectedPlanVersion, {
         suggestions: updated as unknown as Prisma.InputJsonValue,
       });
     } catch (err) {
-      if (err instanceof StaleWriteError) return Response.json({ error: err.message, conflict: true }, { status: 409 });
+      const conflict = staleWriteResponse(err);
+      if (conflict) return conflict;
       throw err;
     }
     return Response.json({ suggestions: updated, results, planVersion });
@@ -92,12 +92,13 @@ export async function POST(
 
   let planVersion: number;
   try {
-    planVersion = await updateProjectIfFresh(projectId, body.expectedPlanVersion as number, {
+    planVersion = await updateProjectIfFresh(projectId, expectedPlanVersion, {
       edl: workingEdl as unknown as Prisma.InputJsonValue,
       suggestions: updatedSuggestions as unknown as Prisma.InputJsonValue,
     });
   } catch (err) {
-    if (err instanceof StaleWriteError) return Response.json({ error: err.message, conflict: true }, { status: 409 });
+    const conflict = staleWriteResponse(err);
+    if (conflict) return conflict;
     throw err;
   }
 

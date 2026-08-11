@@ -10,7 +10,7 @@ import { Suggestion } from '@/lib/suggestions';
 import { diffEdls, buildSuggestionsFromDiff } from '@/lib/diff-edl';
 import { sampleUserVoiceStyle } from '@/lib/voice-style';
 import { populateMusicSections } from '@/lib/music-search';
-import { updateProjectIfFresh, StaleWriteError } from '@/lib/concurrency';
+import { updateProjectIfFresh, parseExpectedPlanVersion, staleWriteResponse } from '@/lib/concurrency';
 
 async function loadPlanInput(projectId: string, cutPreset: CutPreset) {
   const project = await prisma.project.findUnique({
@@ -112,10 +112,8 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
   } catch {
     // sin body → flow automático
   }
-  if (!Number.isInteger(body.expectedPlanVersion) || (body.expectedPlanVersion as number) < 0) {
-    return Response.json({ error: 'falta expectedPlanVersion' }, { status: 400 });
-  }
-  const expectedPlanVersion = body.expectedPlanVersion as number;
+  const expectedPlanVersion = parseExpectedPlanVersion(body);
+  if (expectedPlanVersion === null) return Response.json({ error: 'falta expectedPlanVersion' }, { status: 400 });
   const cutPreset: CutPreset = isValidCutPreset(body.cutPreset) ? body.cutPreset : DEFAULT_CUT_PRESET;
 
   const loaded = await loadPlanInput(projectId, cutPreset);
@@ -162,9 +160,10 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
         suggestions: allSuggestions as unknown as Prisma.InputJsonValue,
       });
     } catch (err) {
-      if (err instanceof StaleWriteError) {
-        errorForLog = err.message;
-        return Response.json({ error: err.message, conflict: true }, { status: 409 });
+      const conflict = staleWriteResponse(err);
+      if (conflict) {
+        errorForLog = err instanceof Error ? err.message : String(err);
+        return conflict;
       }
       throw err;
     }
@@ -195,19 +194,19 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/projects/[
   const { id: projectId } = await ctx.params;
   const body = await req.json();
   if (!isValidEdl(body?.edl)) return Response.json({ error: 'EDL inválido' }, { status: 400 });
-  if (!Number.isInteger(body?.expectedPlanVersion) || body.expectedPlanVersion < 0) {
-    return Response.json({ error: 'falta expectedPlanVersion' }, { status: 400 });
-  }
+  const expectedPlanVersion = parseExpectedPlanVersion(body);
+  if (expectedPlanVersion === null) return Response.json({ error: 'falta expectedPlanVersion' }, { status: 400 });
   const edl = body.edl as Edl;
   const needsMusicPopulate = edl.music.sections.some((s) => s.query && !s.trackId);
   if (needsMusicPopulate) await populateMusicSections(edl);
   let planVersion: number;
   try {
-    planVersion = await updateProjectIfFresh(projectId, body.expectedPlanVersion, {
+    planVersion = await updateProjectIfFresh(projectId, expectedPlanVersion, {
       edl: edl as unknown as Prisma.InputJsonValue,
     });
   } catch (err) {
-    if (err instanceof StaleWriteError) return Response.json({ error: err.message, conflict: true }, { status: 409 });
+    const conflict = staleWriteResponse(err);
+    if (conflict) return conflict;
     throw err;
   }
   return Response.json({ edl, planVersion });

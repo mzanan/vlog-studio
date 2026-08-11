@@ -17,7 +17,7 @@ import { IconCheck, IconX, IconSend } from '@tabler/icons-react';
 import { Suggestion, SuggestionType } from '@/lib/suggestions';
 import { useApiMutation } from './useApiMutation';
 import { useSuggestionMutations } from './useSuggestionMutations';
-import { PlanResponse } from './Editor';
+import { requirePlanVersion, syncPlanCache } from '@/lib/plan-version';
 
 const TYPE_LABELS: Record<SuggestionType, string> = {
   'trim-segment': 'Recortar clip',
@@ -67,14 +67,12 @@ export function SuggestionChatModal({
 
   const chatMutation = useApiMutation({
     mutationFn: async (args: { suggestionId: string; message: string }) => {
-      const planVersion = qc.getQueryData<PlanResponse>(['edl', projectId])?.planVersion;
-      if (typeof planVersion !== 'number') throw new Error('estado del proyecto no cargado todavía, esperá y reintentá');
       const res = await fetch(
         `/api/projects/${projectId}/suggestions/${args.suggestionId}/chat`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: args.message, expectedPlanVersion: planVersion }),
+          body: JSON.stringify({ message: args.message, expectedPlanVersion: requirePlanVersion(qc, projectId) }),
         },
       );
       const body = await res.json();
@@ -83,7 +81,7 @@ export function SuggestionChatModal({
     },
     invalidateKeys: [['render-props', projectId]],
     errorInvalidateKeys: [['edl', projectId]],
-    syncPlanCache: { projectId },
+    onSuccessCache: (result) => syncPlanCache(qc, projectId, result),
     onSuccessExtra: () => {
       setDraft('');
       onChanged();

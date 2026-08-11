@@ -25,3 +25,13 @@ export async function updateProjectIfFresh(
   if (result.count === 0) throw new StaleWriteError();
   return expectedPlanVersion + 1;
 }
+
+export function parseExpectedPlanVersion(body: unknown): number | null {
+  const v = (body as { expectedPlanVersion?: unknown } | null)?.expectedPlanVersion;
+  return Number.isInteger(v) && (v as number) >= 0 ? (v as number) : null;
+}
+
+export function staleWriteResponse(err: unknown): Response | null {
+  if (!(err instanceof StaleWriteError)) return null;
+  return Response.json({ error: err.message, conflict: true }, { status: 409 });
+}

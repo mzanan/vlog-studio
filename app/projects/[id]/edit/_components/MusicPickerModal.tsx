@@ -19,7 +19,7 @@ import {
 import { IconPlayerPlay, IconPlayerStop, IconSearch } from '@tabler/icons-react';
 import type { JamendoTrack } from '@/lib/music-search';
 import { useApiMutation } from './useApiMutation';
-import { PlanResponse } from './Editor';
+import { requirePlanVersion, syncPlanCache } from '@/lib/plan-version';
 
 export type SectionMeta = {
   id: string;
@@ -91,8 +91,7 @@ export function MusicPickerModal({
   const apply = useApiMutation({
     mutationFn: async () => {
       if (!selected) throw new Error('elegí un track');
-      const expectedPlanVersion = qc.getQueryData<PlanResponse>(['edl', projectId])?.planVersion;
-      if (typeof expectedPlanVersion !== 'number') throw new Error('estado del proyecto no cargado todavía, esperá y reintentá');
+      const expectedPlanVersion = requirePlanVersion(qc, projectId);
       if (mode === 'edit' && section) {
         const res = await fetch(`/api/projects/${projectId}/plan/music/${section.id}`, {
           method: 'POST',
@@ -126,7 +125,7 @@ export function MusicPickerModal({
     },
     invalidateKeys: [['render-props', projectId]],
     errorInvalidateKeys: [['edl', projectId]],
-    syncPlanCache: { projectId },
+    onSuccessCache: (result) => syncPlanCache(qc, projectId, result),
     successMessage: mode === 'new' ? 'Música insertada' : 'Música aplicada',
     onSuccessExtra: () => {
       onChanged();

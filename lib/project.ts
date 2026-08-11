@@ -8,6 +8,13 @@ export type ProjectEdlAndSuggestions = {
   planVersion: number;
 };
 
+export type PlanResponse = {
+  edl: Edl | null;
+  suggestions: Suggestion[];
+  isDefault: boolean;
+  planVersion: number | null;
+};
+
 export async function loadProjectPlan(projectId: string): Promise<ProjectEdlAndSuggestions | null> {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
