@@ -15,6 +15,7 @@ model Project {
   edl            Json?
   suggestions    Json?
   musicBlocks    Json?
+  planVersion    Int      @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   clips          Clip[]

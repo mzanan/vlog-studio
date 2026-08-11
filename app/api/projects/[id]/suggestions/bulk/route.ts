@@ -1,16 +1,17 @@
 import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/db';
 import { Prisma } from '@/lib/generated/prisma/client';
 import { loadProjectPlan } from '@/lib/project';
 import { Edl } from '@/lib/edl';
 import { applySuggestion, Suggestion, SuggestionApplyError } from '@/lib/suggestions';
 import { populateMusicSections } from '@/lib/music-search';
+import { updateProjectIfFresh, StaleWriteError } from '@/lib/concurrency';
 
 const MUSIC_TYPES = new Set(['add-music-section', 'replace-music-track']);
 
 type BulkBody = {
   ids: string[];
   action: 'accept' | 'reject';
+  expectedPlanVersion: number;
 };
 
 export async function POST(
@@ -24,6 +25,9 @@ export async function POST(
   }
   if (body.action !== 'accept' && body.action !== 'reject') {
     return Response.json({ error: 'action inválida' }, { status: 400 });
+  }
+  if (!Number.isInteger(body.expectedPlanVersion) || (body.expectedPlanVersion as number) < 0) {
+    return Response.json({ error: 'falta expectedPlanVersion' }, { status: 400 });
   }
 
   const plan = await loadProjectPlan(projectId);
@@ -42,11 +46,16 @@ export async function POST(
       results.push({ id: s.id, status: 'rejected' });
       return { ...s, status: 'rejected' };
     });
-    await prisma.project.update({
-      where: { id: projectId },
-      data: { suggestions: updated as unknown as Prisma.InputJsonValue },
-    });
-    return Response.json({ suggestions: updated, results });
+    let planVersion: number;
+    try {
+      planVersion = await updateProjectIfFresh(projectId, body.expectedPlanVersion as number, {
+        suggestions: updated as unknown as Prisma.InputJsonValue,
+      });
+    } catch (err) {
+      if (err instanceof StaleWriteError) return Response.json({ error: err.message, conflict: true }, { status: 409 });
+      throw err;
+    }
+    return Response.json({ suggestions: updated, results, planVersion });
   }
 
   if (!plan.edl) return Response.json({ error: 'project sin edl' }, { status: 409 });
@@ -81,13 +90,16 @@ export async function POST(
 
   if (touchedMusic) await populateMusicSections(workingEdl);
 
-  await prisma.project.update({
-    where: { id: projectId },
-    data: {
+  let planVersion: number;
+  try {
+    planVersion = await updateProjectIfFresh(projectId, body.expectedPlanVersion as number, {
       edl: workingEdl as unknown as Prisma.InputJsonValue,
       suggestions: updatedSuggestions as unknown as Prisma.InputJsonValue,
-    },
-  });
+    });
+  } catch (err) {
+    if (err instanceof StaleWriteError) return Response.json({ error: err.message, conflict: true }, { status: 409 });
+    throw err;
+  }
 
-  return Response.json({ edl: workingEdl, suggestions: updatedSuggestions, results });
+  return Response.json({ edl: workingEdl, suggestions: updatedSuggestions, results, planVersion });
 }

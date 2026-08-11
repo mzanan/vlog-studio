@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Badge,
   Button,
@@ -16,6 +17,7 @@ import { IconCheck, IconX, IconSend } from '@tabler/icons-react';
 import { Suggestion, SuggestionType } from '@/lib/suggestions';
 import { useApiMutation } from './useApiMutation';
 import { useSuggestionMutations } from './useSuggestionMutations';
+import { PlanResponse } from './Editor';
 
 const TYPE_LABELS: Record<SuggestionType, string> = {
   'trim-segment': 'Recortar clip',
@@ -61,22 +63,27 @@ export function SuggestionChatModal({
 }) {
   const [draft, setDraft] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+  const qc = useQueryClient();
 
   const chatMutation = useApiMutation({
     mutationFn: async (args: { suggestionId: string; message: string }) => {
+      const planVersion = qc.getQueryData<PlanResponse>(['edl', projectId])?.planVersion;
+      if (typeof planVersion !== 'number') throw new Error('estado del proyecto no cargado todavía, esperá y reintentá');
       const res = await fetch(
         `/api/projects/${projectId}/suggestions/${args.suggestionId}/chat`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: args.message }),
+          body: JSON.stringify({ message: args.message, expectedPlanVersion: planVersion }),
         },
       );
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error ?? 'falló');
-      return body as { suggestion: Suggestion };
+      return body as { suggestion: Suggestion; suggestions: Suggestion[]; planVersion: number };
     },
-    invalidateKeys: [['edl', projectId], ['render-props', projectId]],
+    invalidateKeys: [['render-props', projectId]],
+    errorInvalidateKeys: [['edl', projectId]],
+    syncPlanCache: { projectId },
     onSuccessExtra: () => {
       setDraft('');
       onChanged();

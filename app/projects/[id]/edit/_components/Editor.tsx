@@ -31,10 +31,11 @@ export type ClipMeta = {
   transcribedAt: string | null;
 };
 
-type PlanResponse = {
+export type PlanResponse = {
   edl: Edl | null;
   suggestions: Suggestion[];
   isDefault: boolean;
+  planVersion: number | null;
 };
 
 export function Editor({
@@ -94,7 +95,7 @@ export function Editor({
     queryKey: ['edl', projectId],
     queryFn: async () => {
       const res = await fetch(`/api/projects/${projectId}/plan`);
-      if (!res.ok) return { edl: null, suggestions: [], isDefault: false } as PlanResponse;
+      if (!res.ok) return { edl: null, suggestions: [], isDefault: false, planVersion: null } as PlanResponse;
       return (await res.json()) as PlanResponse;
     },
   });
@@ -116,17 +117,21 @@ export function Editor({
 
   const generatePlan = useApiMutation({
     mutationFn: async () => {
+      const expectedPlanVersion = planQuery.data?.planVersion;
+      if (typeof expectedPlanVersion !== 'number') throw new Error('estado del proyecto no cargado todavía, esperá y reintentá');
       const res = await fetch(`/api/projects/${projectId}/plan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cutPreset }),
+        body: JSON.stringify({ cutPreset, expectedPlanVersion }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error ?? 'falló');
-      return body as { suggestions: Suggestion[]; generated: number };
+      return body as { edl: Edl; suggestions: Suggestion[]; generated: number; planVersion: number };
     },
-    invalidateKeys: [['edl', projectId], ['render-props', projectId]],
-    successMessage: 'Sugerencias AI generadas — revisalas en la timeline o en el panel',
+    invalidateKeys: [['render-props', projectId]],
+    errorInvalidateKeys: [['edl', projectId]],
+    syncPlanCache: { projectId },
+    successMessage: 'Sugerencias AI generadas, revisalas en la timeline o en el panel',
     onSuccessExtra: () => setPanelOpen(true),
   });
 

@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { ActionIcon, Group, Paper, ScrollArea, Stack, Text, Tooltip } from '@mantine/core';
 import { IconZoomIn, IconZoomOut } from '@tabler/icons-react';
 import { PlayerRef } from '@remotion/player';
 import { Edl, EdlSegment, MusicSection, segmentDurationMs } from '@/lib/edl';
 import { Suggestion, SuggestionType } from '@/lib/suggestions';
 import { useLocalStorageValue, setLocalStorageValue } from '@/hooks/useLocalStorageValue';
-import { ClipMeta } from './Editor';
+import { ClipMeta, PlanResponse } from './Editor';
 import { VideoTrack, VideoSegmentItem } from './VideoTrack';
 import { MusicTrack } from './MusicTrack';
 import { VoTrack } from './VoTrack';
@@ -84,6 +85,7 @@ export function Timeline({
   const voSuggestions = useMemo(() => pending.filter((s) => VO_TYPES.includes(s.type)), [pending]);
 
   const { accept, reject } = useSuggestionMutations(projectId, onChanged);
+  const qc = useQueryClient();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -115,16 +117,20 @@ export function Timeline({
 
   const patchEdl = useApiMutation({
     mutationFn: async (newEdl: Edl) => {
+      const expectedPlanVersion = qc.getQueryData<PlanResponse>(['edl', projectId])?.planVersion;
+      if (typeof expectedPlanVersion !== 'number') throw new Error('estado del proyecto no cargado todavía, esperá y reintentá');
       const res = await fetch(`/api/projects/${projectId}/plan`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ edl: newEdl }),
+        body: JSON.stringify({ edl: newEdl, expectedPlanVersion }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error ?? 'falló');
-      return body.edl as Edl;
+      return body as { edl: Edl; planVersion: number };
     },
-    invalidateKeys: [['edl', projectId], ['render-props', projectId]],
+    invalidateKeys: [['render-props', projectId]],
+    errorInvalidateKeys: [['edl', projectId]],
+    syncPlanCache: { projectId },
     onSuccessExtra: () => onChanged(),
     errorAutoClose: 6000,
   });

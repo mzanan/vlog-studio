@@ -4,8 +4,9 @@ import { Prisma } from '@/lib/generated/prisma/client';
 import { loadProjectPlan } from '@/lib/project';
 import { ChatMessage, Suggestion } from '@/lib/suggestions';
 import { refineSuggestion, mergeUpdatedPayload, ClipContext } from '@/lib/llm/refine';
+import { updateProjectIfFresh, StaleWriteError } from '@/lib/concurrency';
 
-type ChatBody = { message: string };
+type ChatBody = { message: string; expectedPlanVersion: number };
 
 export async function POST(
   req: NextRequest,
@@ -15,6 +16,9 @@ export async function POST(
   const body = (await req.json()) as Partial<ChatBody>;
   if (!body.message || typeof body.message !== 'string' || body.message.trim() === '') {
     return Response.json({ error: 'message vacío' }, { status: 400 });
+  }
+  if (!Number.isInteger(body.expectedPlanVersion) || (body.expectedPlanVersion as number) < 0) {
+    return Response.json({ error: 'falta expectedPlanVersion' }, { status: 400 });
   }
   const userMessage = body.message.trim();
 
@@ -100,10 +104,21 @@ export async function POST(
   const newList = [...plan.suggestions];
   newList[idx] = updated;
 
-  await prisma.project.update({
-    where: { id: projectId },
-    data: { suggestions: newList as unknown as Prisma.InputJsonValue },
-  });
+  let planVersion: number;
+  try {
+    planVersion = await updateProjectIfFresh(projectId, body.expectedPlanVersion as number, {
+      suggestions: newList as unknown as Prisma.InputJsonValue,
+    });
+  } catch (err) {
+    if (err instanceof StaleWriteError) return Response.json({ error: err.message, conflict: true }, { status: 409 });
+    throw err;
+  }
 
-  return Response.json({ suggestion: updated, reply: result.reply, updatedPayload: result.updatedPayload });
+  return Response.json({
+    suggestion: updated,
+    suggestions: newList,
+    reply: result.reply,
+    updatedPayload: result.updatedPayload,
+    planVersion,
+  });
 }
