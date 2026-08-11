@@ -8,9 +8,11 @@ import { notifications } from '@mantine/notifications';
 import { PlayerRef } from '@remotion/player';
 import { Edl } from '@/lib/edl';
 import { Suggestion } from '@/lib/suggestions';
+import { PlanResponse } from '@/lib/project';
 import { CutPreset } from '@/lib/llm';
 import { VlogInputProps } from '@/lib/remotion/types';
 import { useLocalStorageValue, setLocalStorageValue } from '@/hooks/useLocalStorageValue';
+import { requirePlanVersion, syncPlanCache } from '@/lib/plan-version';
 import { EditorPlayer } from './EditorPlayer';
 import { Timeline } from './Timeline';
 import { useApiMutation } from './useApiMutation';
@@ -29,12 +31,6 @@ export type ClipMeta = {
   durationMs: number;
   hasVoice: boolean;
   transcribedAt: string | null;
-};
-
-type PlanResponse = {
-  edl: Edl | null;
-  suggestions: Suggestion[];
-  isDefault: boolean;
 };
 
 export function Editor({
@@ -94,7 +90,7 @@ export function Editor({
     queryKey: ['edl', projectId],
     queryFn: async () => {
       const res = await fetch(`/api/projects/${projectId}/plan`);
-      if (!res.ok) return { edl: null, suggestions: [], isDefault: false } as PlanResponse;
+      if (!res.ok) return { edl: null, suggestions: [], isDefault: false, planVersion: null } as PlanResponse;
       return (await res.json()) as PlanResponse;
     },
   });
@@ -119,14 +115,16 @@ export function Editor({
       const res = await fetch(`/api/projects/${projectId}/plan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cutPreset }),
+        body: JSON.stringify({ cutPreset, expectedPlanVersion: requirePlanVersion(qc, projectId) }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error ?? 'falló');
-      return body as { suggestions: Suggestion[]; generated: number };
+      return body as { edl: Edl; suggestions: Suggestion[]; generated: number; planVersion: number };
     },
-    invalidateKeys: [['edl', projectId], ['render-props', projectId]],
-    successMessage: 'Sugerencias AI generadas — revisalas en la timeline o en el panel',
+    invalidateKeys: [['render-props', projectId]],
+    errorInvalidateKeys: [['edl', projectId]],
+    onSuccessCache: (result) => syncPlanCache(qc, projectId, result),
+    successMessage: 'Sugerencias AI generadas, revisalas en la timeline o en el panel',
     onSuccessExtra: () => setPanelOpen(true),
   });
 

@@ -1,14 +1,18 @@
 import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/db';
 import { Prisma } from '@/lib/generated/prisma/client';
 import { loadProjectPlan } from '@/lib/project';
 import { Suggestion } from '@/lib/suggestions';
+import { updateProjectIfFresh, parseExpectedPlanVersion, staleWriteResponse } from '@/lib/concurrency';
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   ctx: RouteContext<'/api/projects/[id]/suggestions/[suggestionId]/reject'>,
 ) {
   const { id: projectId, suggestionId } = await ctx.params;
+  const body = await req.json().catch(() => ({}));
+  const expectedPlanVersion = parseExpectedPlanVersion(body);
+  if (expectedPlanVersion === null) return Response.json({ error: 'falta expectedPlanVersion' }, { status: 400 });
+
   const plan = await loadProjectPlan(projectId);
   if (!plan) return Response.json({ error: 'project not found' }, { status: 404 });
 
@@ -22,10 +26,16 @@ export async function POST(
     s.id === suggestionId ? { ...s, status: 'rejected' } : s,
   );
 
-  await prisma.project.update({
-    where: { id: projectId },
-    data: { suggestions: updated as unknown as Prisma.InputJsonValue },
-  });
+  let planVersion: number;
+  try {
+    planVersion = await updateProjectIfFresh(projectId, expectedPlanVersion, {
+      suggestions: updated as unknown as Prisma.InputJsonValue,
+    });
+  } catch (err) {
+    const conflict = staleWriteResponse(err);
+    if (conflict) return conflict;
+    throw err;
+  }
 
-  return Response.json({ suggestions: updated });
+  return Response.json({ suggestions: updated, planVersion });
 }

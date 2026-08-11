@@ -10,6 +10,7 @@ import { Suggestion } from '@/lib/suggestions';
 import { diffEdls, buildSuggestionsFromDiff } from '@/lib/diff-edl';
 import { sampleUserVoiceStyle } from '@/lib/voice-style';
 import { populateMusicSections } from '@/lib/music-search';
+import { updateProjectIfFresh, parseExpectedPlanVersion, staleWriteResponse } from '@/lib/concurrency';
 
 async function loadPlanInput(projectId: string, cutPreset: CutPreset) {
   const project = await prisma.project.findUnique({
@@ -75,10 +76,10 @@ export async function GET(req: NextRequest, ctx: RouteContext<'/api/projects/[id
 
   const plan = await loadProjectPlan(projectId);
   if (!plan) {
-    return Response.json({ provider: currentProvider(), edl: null, suggestions: [], isDefault: false });
+    return Response.json({ provider: currentProvider(), edl: null, suggestions: [], isDefault: false, planVersion: null });
   }
   if (plan.edl) {
-    return Response.json({ provider: currentProvider(), edl: plan.edl, suggestions: plan.suggestions, isDefault: false });
+    return Response.json({ provider: currentProvider(), edl: plan.edl, suggestions: plan.suggestions, isDefault: false, planVersion: plan.planVersion });
   }
 
   const clips = await prisma.clip.findMany({
@@ -87,13 +88,14 @@ export async function GET(req: NextRequest, ctx: RouteContext<'/api/projects/[id
     select: { id: true, durationMs: true },
   });
   if (clips.length === 0) {
-    return Response.json({ provider: currentProvider(), edl: null, suggestions: plan.suggestions, isDefault: false });
+    return Response.json({ provider: currentProvider(), edl: null, suggestions: plan.suggestions, isDefault: false, planVersion: plan.planVersion });
   }
   return Response.json({
     provider: currentProvider(),
     edl: buildDefaultEdl(clips),
     suggestions: plan.suggestions,
     isDefault: true,
+    planVersion: plan.planVersion,
   });
 }
 
@@ -104,12 +106,14 @@ export async function GET(req: NextRequest, ctx: RouteContext<'/api/projects/[id
 export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[id]/plan'>) {
   const { id: projectId } = await ctx.params;
 
-  let body: { rawJson?: string; cutPreset?: string } = {};
+  let body: { rawJson?: string; cutPreset?: string; expectedPlanVersion?: number } = {};
   try {
-    body = (await req.json()) as { rawJson?: string; cutPreset?: string };
+    body = (await req.json()) as { rawJson?: string; cutPreset?: string; expectedPlanVersion?: number };
   } catch {
     // sin body → flow automático
   }
+  const expectedPlanVersion = parseExpectedPlanVersion(body);
+  if (expectedPlanVersion === null) return Response.json({ error: 'falta expectedPlanVersion' }, { status: 400 });
   const cutPreset: CutPreset = isValidCutPreset(body.cutPreset) ? body.cutPreset : DEFAULT_CUT_PRESET;
 
   const loaded = await loadPlanInput(projectId, cutPreset);
@@ -136,18 +140,11 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
       llmEdlForLog = result.llmEdl;
     }
 
-    // Asegurar baseline edl persistido — si no hay, escribir default ahora.
+    // Baseline edl: si no hay uno persistido, usamos el default en memoria
+    // (se persiste recién en el write final de abajo, junto con las suggestions).
     const plan = await loadProjectPlan(projectId);
-    let currentEdl: Edl;
-    if (plan?.edl) {
-      currentEdl = plan.edl;
-    } else {
-      currentEdl = buildDefaultEdl(loaded.project.clips.map((c) => ({ id: c.id, durationMs: c.durationMs })));
-      await prisma.project.update({
-        where: { id: projectId },
-        data: { edl: currentEdl as unknown as Prisma.InputJsonValue },
-      });
-    }
+    const currentEdl: Edl = plan?.edl
+      ?? buildDefaultEdl(loaded.project.clips.map((c) => ({ id: c.id, durationMs: c.durationMs })));
 
     const diff = diffEdls(currentEdl, resolvedLlmEdl);
     const newSuggestions = buildSuggestionsFromDiff(diff);
@@ -156,12 +153,22 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
     const keptOlder = (plan?.suggestions ?? []).filter((s) => s.status !== 'pending');
     const allSuggestions: Suggestion[] = [...keptOlder, ...newSuggestions];
 
-    await prisma.project.update({
-      where: { id: projectId },
-      data: { suggestions: allSuggestions as unknown as Prisma.InputJsonValue },
-    });
+    let planVersion: number;
+    try {
+      planVersion = await updateProjectIfFresh(projectId, expectedPlanVersion, {
+        edl: currentEdl as unknown as Prisma.InputJsonValue,
+        suggestions: allSuggestions as unknown as Prisma.InputJsonValue,
+      });
+    } catch (err) {
+      const conflict = staleWriteResponse(err);
+      if (conflict) {
+        errorForLog = err instanceof Error ? err.message : String(err);
+        return conflict;
+      }
+      throw err;
+    }
 
-    return Response.json({ edl: currentEdl, suggestions: allSuggestions, generated: newSuggestions.length });
+    return Response.json({ edl: currentEdl, suggestions: allSuggestions, generated: newSuggestions.length, planVersion });
   } catch (err) {
     errorForLog = err instanceof Error ? err.message : String(err);
     return Response.json({ error: errorForLog }, { status: 500 });
@@ -187,12 +194,20 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/projects/[
   const { id: projectId } = await ctx.params;
   const body = await req.json();
   if (!isValidEdl(body?.edl)) return Response.json({ error: 'EDL inválido' }, { status: 400 });
+  const expectedPlanVersion = parseExpectedPlanVersion(body);
+  if (expectedPlanVersion === null) return Response.json({ error: 'falta expectedPlanVersion' }, { status: 400 });
   const edl = body.edl as Edl;
   const needsMusicPopulate = edl.music.sections.some((s) => s.query && !s.trackId);
   if (needsMusicPopulate) await populateMusicSections(edl);
-  await prisma.project.update({
-    where: { id: projectId },
-    data: { edl: edl as unknown as Prisma.InputJsonValue },
-  });
-  return Response.json({ edl });
+  let planVersion: number;
+  try {
+    planVersion = await updateProjectIfFresh(projectId, expectedPlanVersion, {
+      edl: edl as unknown as Prisma.InputJsonValue,
+    });
+  } catch (err) {
+    const conflict = staleWriteResponse(err);
+    if (conflict) return conflict;
+    throw err;
+  }
+  return Response.json({ edl, planVersion });
 }

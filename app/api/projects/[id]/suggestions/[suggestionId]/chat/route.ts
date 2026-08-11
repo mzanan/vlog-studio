@@ -4,8 +4,9 @@ import { Prisma } from '@/lib/generated/prisma/client';
 import { loadProjectPlan } from '@/lib/project';
 import { ChatMessage, Suggestion } from '@/lib/suggestions';
 import { refineSuggestion, mergeUpdatedPayload, ClipContext } from '@/lib/llm/refine';
+import { updateProjectIfFresh, parseExpectedPlanVersion, staleWriteResponse } from '@/lib/concurrency';
 
-type ChatBody = { message: string };
+type ChatBody = { message: string; expectedPlanVersion: number };
 
 export async function POST(
   req: NextRequest,
@@ -16,6 +17,8 @@ export async function POST(
   if (!body.message || typeof body.message !== 'string' || body.message.trim() === '') {
     return Response.json({ error: 'message vacío' }, { status: 400 });
   }
+  const expectedPlanVersion = parseExpectedPlanVersion(body);
+  if (expectedPlanVersion === null) return Response.json({ error: 'falta expectedPlanVersion' }, { status: 400 });
   const userMessage = body.message.trim();
 
   const plan = await loadProjectPlan(projectId);
@@ -100,10 +103,22 @@ export async function POST(
   const newList = [...plan.suggestions];
   newList[idx] = updated;
 
-  await prisma.project.update({
-    where: { id: projectId },
-    data: { suggestions: newList as unknown as Prisma.InputJsonValue },
-  });
+  let planVersion: number;
+  try {
+    planVersion = await updateProjectIfFresh(projectId, expectedPlanVersion, {
+      suggestions: newList as unknown as Prisma.InputJsonValue,
+    });
+  } catch (err) {
+    const conflict = staleWriteResponse(err);
+    if (conflict) return conflict;
+    throw err;
+  }
 
-  return Response.json({ suggestion: updated, reply: result.reply, updatedPayload: result.updatedPayload });
+  return Response.json({
+    suggestion: updated,
+    suggestions: newList,
+    reply: result.reply,
+    updatedPayload: result.updatedPayload,
+    planVersion,
+  });
 }

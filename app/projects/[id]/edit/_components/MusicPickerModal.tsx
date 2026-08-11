@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Anchor,
   Badge,
@@ -19,6 +19,7 @@ import {
 import { IconPlayerPlay, IconPlayerStop, IconSearch } from '@tabler/icons-react';
 import type { JamendoTrack } from '@/lib/music-search';
 import { useApiMutation } from './useApiMutation';
+import { requirePlanVersion, syncPlanCache } from '@/lib/plan-version';
 
 export type SectionMeta = {
   id: string;
@@ -68,6 +69,7 @@ export function MusicPickerModal({
   const [energy, setEnergy] = useState<Energy>((section?.energy as Energy) ?? 'mid');
 
   const durationMs = section?.durationMs ?? (newSection ? newSection.endMs - newSection.startMs : 0);
+  const qc = useQueryClient();
 
   const search = useQuery({
     queryKey: ['music-search', appliedQuery, durationMs, SEARCH_LIMIT],
@@ -89,11 +91,12 @@ export function MusicPickerModal({
   const apply = useApiMutation({
     mutationFn: async () => {
       if (!selected) throw new Error('elegí un track');
+      const expectedPlanVersion = requirePlanVersion(qc, projectId);
       if (mode === 'edit' && section) {
         const res = await fetch(`/api/projects/${projectId}/plan/music/${section.id}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ track: selected, baseVolume }),
+          body: JSON.stringify({ track: selected, baseVolume, expectedPlanVersion }),
         });
         const body = await res.json();
         if (!res.ok) throw new Error(body?.error ?? 'falló');
@@ -111,6 +114,7 @@ export function MusicPickerModal({
             energy,
             baseVolume,
             track: selected,
+            expectedPlanVersion,
           }),
         });
         const body = await res.json();
@@ -119,7 +123,9 @@ export function MusicPickerModal({
       }
       throw new Error('estado inválido del modal');
     },
-    invalidateKeys: [['edl', projectId], ['render-props', projectId]],
+    invalidateKeys: [['render-props', projectId]],
+    errorInvalidateKeys: [['edl', projectId]],
+    onSuccessCache: (result) => syncPlanCache(qc, projectId, result),
     successMessage: mode === 'new' ? 'Música insertada' : 'Música aplicada',
     onSuccessExtra: () => {
       onChanged();
