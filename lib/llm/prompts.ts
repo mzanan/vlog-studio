@@ -6,9 +6,12 @@ import {
   EdlVoiceoverCue,
   Energy,
   MusicSection,
+  clampBrollSpeed,
   defaultBaseVolumeFor,
   estimateVoiceoverDurationMs,
+  playbackDurationMs,
 } from '../edl';
+import { VisionTag } from '../chapters';
 
 export type ClipWord = {
   wordIndex: number;
@@ -17,14 +20,15 @@ export type ClipWord = {
   text: string;
 };
 
+export type ClipVisionTag = Pick<VisionTag, 'escena' | 'lugar_tipo' | 'tipo_plano' | 'movimiento' | 'fuerza_visual'>;
+
 export type ClipForPlanning = {
   id: string;
   filename: string;
   kind: 'a-camara' | 'b-roll';
   durationMs: number;
-  // Para clips a-cámara: lista densa de palabras con timestamps (de Whisper).
-  // Para b-roll: vacío o no enviado.
   words: ClipWord[];
+  visionTag?: ClipVisionTag;
 };
 
 export type PlanInput = {
@@ -53,6 +57,7 @@ export type LlmBrollSegment = {
   clipId: string;
   inMs: number;
   outMs: number;
+  speed: number;
 };
 
 export type LlmSegment = LlmClipSegment | LlmBrollSegment;
@@ -141,6 +146,13 @@ ${cutPolicyFor(preset)}
 
    "broll" (clips b-roll): cortás por inMs/outMs (relativos al clip original) porque no hay transcript. Usalos para cubrir tramos de VO o para transiciones visuales. Igual aplican las reglas de orden.
 
+   Si el clip trae un tag de visión (escena, tipo_plano, movimiento, fuerza_visual 1-10), usalo para decidir inMs/outMs y speed:
+   - fuerza_visual 8-10: clip fuerte, dejalo entero (inMs=0, outMs=durationMs) a speed=1.
+   - fuerza_visual 5-7: clip correcto pero no memorable, dejalo entero a speed=1, salvo que dure más de 4s, en cuyo caso podés acelerarlo a speed=1.5.
+   - fuerza_visual 1-4: filler débil, acelerá a speed=2-3 en vez de cortarlo (el user prefiere ver todo el material a que la AI descarte contenido). Solo recortá inMs/outMs si el clip dura más de 8s y sobra relleno evidente en algún extremo.
+   - Sin tag de visión: sin base para decidir, dejalo entero (inMs=0, outMs=durationMs) a speed=1.
+   speed siempre entre 1 y 3.
+
 2. VOICEOVER — UN SOLO script lineal con cues, no fragmentos sueltos:
    - fullScript: el texto completo que el usuario va a grabar de UNA sola toma. Tiene que fluir, conectar ideas entre clips, sonar natural en el estilo del usuario.
    - cues: subdivisiones del fullScript con el segmentIdx donde cada una entra. startSegmentIdx es el índice (0-based) sobre tu lista de segments. Cada cue queda alineada al inicio de ese segment.
@@ -167,7 +179,7 @@ export const PLANNER_SYSTEM = buildPlannerSystem(DEFAULT_CUT_PRESET);
 export const EDL_JSON_SHAPE = `{
   "segments": [
     { "kind": "clip",  "clipId": "string", "keepFromWordIdx": 0, "keepToWordIdx": 0, "cutReason": "string" },
-    { "kind": "broll", "clipId": "string", "inMs": 0, "outMs": 0 }
+    { "kind": "broll", "clipId": "string", "inMs": 0, "outMs": 0, "speed": 1 }
   ],
   "voiceover": {
     "fullScript": "texto completo en español, tono del usuario",
@@ -208,6 +220,11 @@ function renderWordsWithGaps(words: ClipWord[]): string {
   return parts.join(' ');
 }
 
+function renderVisionTag(tag: ClipVisionTag | undefined): string {
+  if (!tag) return '(sin datos, sin base para decidir, dejalo entero a speed=1)';
+  return `escena="${tag.escena}", lugar=${tag.lugar_tipo}, plano=${tag.tipo_plano}, movimiento=${tag.movimiento}, fuerza_visual=${tag.fuerza_visual}/10`;
+}
+
 export function buildUserMessage(input: PlanInput): string {
   const lines: string[] = [];
   lines.push(`Intent del vlog: ${input.intent || '(sin especificar)'}`);
@@ -235,7 +252,8 @@ export function buildUserMessage(input: PlanInput): string {
     if (clip.kind === 'a-camara') {
       lines.push(`palabras (${clip.words.length}): ${renderWordsWithGaps(clip.words)}`);
     } else {
-      lines.push('transcript: (b-roll, sin habla — cortar por inMs/outMs)');
+      lines.push(`transcript: (b-roll, sin habla)`);
+      lines.push(`tag de visión: ${renderVisionTag(clip.visionTag)}`);
     }
   }
 
@@ -279,7 +297,7 @@ export function resolveLlmEdl(llm: LlmEdl, input: PlanInput): Edl {
         };
       }
       return {
-        seg: { id: randomUUID(), kind: 'broll', clipId: s.clipId, inMs: s.inMs, outMs: s.outMs },
+        seg: { id: randomUUID(), kind: 'broll', clipId: s.clipId, inMs: s.inMs, outMs: s.outMs, speed: clampBrollSpeed(s.speed) },
         origIdx,
       };
     })
@@ -332,7 +350,7 @@ export function resolveLlmEdl(llm: LlmEdl, input: PlanInput): Edl {
   let cursor = 0;
   for (const s of segments) {
     segmentStartsMs.push(cursor);
-    cursor += s.outMs - s.inMs;
+    cursor += playbackDurationMs(s);
   }
   const totalMs = cursor;
 
@@ -356,7 +374,7 @@ export function resolveLlmEdl(llm: LlmEdl, input: PlanInput): Edl {
     const startMs = segmentStartsMs[startIdx] ?? 0;
     const endSegStart = segmentStartsMs[endIdx] ?? 0;
     const endSeg = segments[endIdx];
-    const endMs = endSeg ? endSegStart + (endSeg.outMs - endSeg.inMs) : totalMs;
+    const endMs = endSeg ? endSegStart + playbackDurationMs(endSeg) : totalMs;
     return {
       id: randomUUID(),
       startMs,

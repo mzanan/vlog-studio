@@ -32,6 +32,11 @@ export async function loadVisionTags(): Promise<VisionTag[]> {
   return all;
 }
 
+export function visionTagForFilename(filename: string, tags: VisionTag[]): VisionTag | undefined {
+  const basename = path.basename(filename, path.extname(filename));
+  return tags.find((t) => t.clip === basename);
+}
+
 const CLIP_TIMESTAMP_RE = /^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})$/;
 
 export function parseClipTimestamp(clip: string): number {

@@ -6,7 +6,7 @@
 // full-length por clip, sin VO ni música)". Si el user ya editó manualmente
 // un clip, ese clip se skipea (no proponemos cambios sobre ediciones manuales).
 
-import { Edl, EdlSegment } from './edl';
+import { Edl, EdlSegment, clampBrollSpeed } from './edl';
 import { SuggestionBody, newSuggestion, Suggestion } from './suggestions';
 
 export type DiffEntry = {
@@ -104,7 +104,18 @@ function diffClip(
   if (llm.length === 1) {
     const llmSeg = llm[0];
     if (sameRange(currentSeg, llmSeg)) return; // no change
+    const isBroll = llmSeg.kind === 'broll';
     const cutReason = llmSeg.kind === 'clip' ? llmSeg.cutReason : '';
+    const rangeChanged = currentSeg.inMs !== llmSeg.inMs || currentSeg.outMs !== llmSeg.outMs;
+    const prevSpeed = isBroll ? (currentSeg.kind === 'broll' ? clampBrollSpeed(currentSeg.speed) : 1) : undefined;
+    const newSpeed = isBroll ? clampBrollSpeed(llmSeg.speed) : undefined;
+    const speedChanged = isBroll && prevSpeed !== newSpeed;
+    let rationale = cutReason;
+    if (!rationale) {
+      if (rangeChanged && speedChanged) rationale = `AI propone recortar y acelerar a ${newSpeed}x`;
+      else if (speedChanged) rationale = `AI propone acelerar a ${newSpeed}x, sin recortar`;
+      else rationale = 'AI propone recortar este clip';
+    }
     out.push({
       body: {
         type: 'trim-segment',
@@ -116,9 +127,11 @@ function diffClip(
           newInMs: llmSeg.inMs,
           newOutMs: llmSeg.outMs,
           newCutReason: cutReason,
+          prevSpeed,
+          newSpeed,
         },
       },
-      rationale: cutReason || 'AI propone recortar este clip',
+      rationale,
     });
     return;
   }
@@ -133,6 +146,7 @@ function diffClip(
           inMs: s.inMs,
           outMs: s.outMs,
           cutReason: s.kind === 'clip' ? s.cutReason : '',
+          speed: s.kind === 'broll' ? clampBrollSpeed(s.speed) : undefined,
         })),
       },
     },
@@ -141,7 +155,10 @@ function diffClip(
 }
 
 function sameRange(a: EdlSegment, b: EdlSegment): boolean {
-  return a.inMs === b.inMs && a.outMs === b.outMs;
+  if (a.inMs !== b.inMs || a.outMs !== b.outMs) return false;
+  const aSpeed = a.kind === 'broll' ? clampBrollSpeed(a.speed) : 1;
+  const bSpeed = b.kind === 'broll' ? clampBrollSpeed(b.speed) : 1;
+  return aSpeed === bSpeed;
 }
 
 export function buildSuggestionsFromDiff(entries: DiffEntry[]): Suggestion[] {

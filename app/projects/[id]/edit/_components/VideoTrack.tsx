@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { ActionIcon, Group, Text, Tooltip } from '@mantine/core';
-import { IconArrowBackUp } from '@tabler/icons-react';
+import { IconArrowBackUp, IconEye, IconEyeOff } from '@tabler/icons-react';
 import {
   DndContext,
   DragEndEvent,
@@ -45,6 +45,8 @@ export function VideoTrack({
   onAcceptSuggestion,
   onRejectSuggestion,
   onChatSuggestion,
+  previewExcluded,
+  onTogglePreviewSuggestion,
 }: {
   items: VideoSegmentItem[];
   clipsLookup: Record<string, ClipMeta>;
@@ -54,6 +56,8 @@ export function VideoTrack({
   onAcceptSuggestion: (id: string) => void;
   onRejectSuggestion: (id: string) => void;
   onChatSuggestion: (id: string) => void;
+  previewExcluded: string[];
+  onTogglePreviewSuggestion: (id: string) => void;
 }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -116,6 +120,8 @@ export function VideoTrack({
                 onAcceptSuggestion={onAcceptSuggestion}
                 onRejectSuggestion={onRejectSuggestion}
                 onChatSuggestion={onChatSuggestion}
+                previewExcluded={previewExcluded}
+                onTogglePreviewSuggestion={onTogglePreviewSuggestion}
               />
             );
           })}
@@ -134,6 +140,8 @@ function SegmentBlock({
   onAcceptSuggestion,
   onRejectSuggestion,
   onChatSuggestion,
+  previewExcluded,
+  onTogglePreviewSuggestion,
 }: {
   item: VideoSegmentItem;
   filename: string;
@@ -143,6 +151,8 @@ function SegmentBlock({
   onAcceptSuggestion: (id: string) => void;
   onRejectSuggestion: (id: string) => void;
   onChatSuggestion: (id: string) => void;
+  previewExcluded: string[];
+  onTogglePreviewSuggestion: (id: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
@@ -153,9 +163,19 @@ function SegmentBlock({
   const isTrimmed = trimmedMs > 0;
   const segDurationMs = item.seg.outMs - item.seg.inMs;
   const hasHideSug = suggestions.hides.length > 0;
+  const brollSpeed = !isClip ? (item.seg as { speed?: number }).speed ?? 1 : 1;
+  const speedLabel = brollSpeed !== 1 ? ` · ${brollSpeed}x` : '';
+  const secs = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
+  const trimSug = suggestions.trims.find((s) => s.type === 'trim-segment');
+  let durationLabel = `${secs(segDurationMs / brollSpeed)}${speedLabel}`;
+  if (trimSug && trimSug.type === 'trim-segment') {
+    const sugSpeed = trimSug.data.newSpeed ?? 1;
+    const sugMs = (trimSug.data.newOutMs - trimSug.data.newInMs) / sugSpeed;
+    durationLabel = `${secs(segDurationMs / brollSpeed)} → ${secs(sugMs)}${sugSpeed !== 1 ? ` (${sugSpeed}x)` : ''}`;
+  }
   const detail = isClip
-    ? `${(item.seg.inMs / 1000).toFixed(1)}s → ${(item.seg.outMs / 1000).toFixed(1)}s${cutReason ? ` · ${cutReason}` : ''}`
-    : `B-roll silenciado · ${(item.seg.inMs / 1000).toFixed(1)}s → ${(item.seg.outMs / 1000).toFixed(1)}s`;
+    ? `${durationLabel}${cutReason ? ` · ${cutReason}` : ''}`
+    : `B-roll · ${durationLabel}`;
 
   const blockWidth = Math.max(20, item.widthPx - 2);
 
@@ -248,6 +268,8 @@ function SegmentBlock({
               onAccept={() => onAcceptSuggestion(s.id)}
               onReject={() => onRejectSuggestion(s.id)}
               onChat={() => onChatSuggestion(s.id)}
+              previewOff={previewExcluded.includes(s.id)}
+              onTogglePreview={() => onTogglePreviewSuggestion(s.id)}
             />
           );
         })}
@@ -301,6 +323,8 @@ function TrimOverlay({
   onAccept,
   onReject,
   onChat,
+  previewOff,
+  onTogglePreview,
 }: {
   left: number;
   width: number;
@@ -308,9 +332,11 @@ function TrimOverlay({
   onAccept: () => void;
   onReject: () => void;
   onChat: () => void;
+  previewOff: boolean;
+  onTogglePreview: () => void;
 }) {
   return (
-    <Tooltip label={`AI propone recortar: ${label}`} withinPortal>
+    <Tooltip label={label} withinPortal>
       <div
         style={{
           position: 'absolute',
@@ -318,8 +344,8 @@ function TrimOverlay({
           top: 0,
           width,
           height: '100%',
-          border: '2px dashed var(--mantine-color-teal-6)',
-          background: 'rgba(0, 200, 150, 0.12)',
+          border: `2px dashed var(--mantine-color-${previewOff ? 'gray-6' : 'teal-6'})`,
+          background: previewOff ? 'rgba(120, 120, 120, 0.12)' : 'rgba(0, 200, 150, 0.12)',
           borderRadius: 3,
           pointerEvents: 'none',
           zIndex: 2,
@@ -331,8 +357,16 @@ function TrimOverlay({
             bottom: 2,
             right: 2,
             pointerEvents: 'auto',
+            display: 'flex',
+            gap: 4,
+            alignItems: 'center',
           }}
         >
+          <Tooltip label={previewOff ? 'Viendo original: volver a aplicar la sugerencia en el preview' : 'Ver este clip original en el preview (sin la sugerencia)'} withinPortal>
+            <ActionIcon size="sm" variant={previewOff ? 'filled' : 'light'} color={previewOff ? 'orange' : 'gray'} onClick={onTogglePreview}>
+              {previewOff ? <IconEyeOff size={14} /> : <IconEye size={14} />}
+            </ActionIcon>
+          </Tooltip>
           <SuggestionActions onAccept={onAccept} onReject={onReject} onChat={onChat} />
         </div>
       </div>

@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { stat } from 'node:fs/promises';
-import { Edl } from './edl';
+import { Edl, clampBrollSpeed, playbackDurationMs } from './edl';
 import { dbToLinear } from './ffmpeg';
 import type { Clip } from './generated/prisma/client';
 import { projectDir } from './paths';
@@ -39,13 +39,15 @@ export async function buildVlogProps(input: BuildPropsInput): Promise<VlogInputP
   for (const seg of edl.segments) {
     const clip = clipsById.get(seg.clipId);
     if (!clip) throw new Error(`Clip ${seg.clipId} no encontrado en el proyecto`);
-    const durationFrames = msToFrames(seg.outMs - seg.inMs);
+    const durationFrames = msToFrames(playbackDurationMs(seg));
+    const playbackRate = seg.kind === 'broll' ? clampBrollSpeed(seg.speed) : 1;
     segments.push({
       kind: seg.kind,
       videoUrl: `${baseUrl}/api/projects/${projectId}/clips/${clip.id}/file`,
       trimStartSec: seg.inMs / 1000,
       trimEndSec: seg.outMs / 1000,
       durationFrames,
+      playbackRate,
       clipWidth: clip.width,
       clipHeight: clip.height,
       audioVolumeMul: typeof clip.audioGainDb === 'number' ? dbToLinear(clip.audioGainDb) : 1,
@@ -53,6 +55,13 @@ export async function buildVlogProps(input: BuildPropsInput): Promise<VlogInputP
     frameCursor += durationFrames;
   }
   const totalDurationFrames = Math.max(1, frameCursor);
+  const spedUp = segments
+    .map((s, i) => ({ i, rate: s.playbackRate, frames: s.durationFrames }))
+    .filter((s) => s.rate !== 1);
+  console.log(
+    `[render-props] ${projectId}: ${segments.length} segments, ${spedUp.length} accelerated`,
+    spedUp.map((s) => `#${s.i} ${s.rate}x ${s.frames}f`).join(' ') || '(none)',
+  );
 
   const voPath = path.join(projectDir(projectId), 'vo', 'master.wav');
   const voiceover: VoiceoverProp = {

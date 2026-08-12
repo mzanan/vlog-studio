@@ -96,10 +96,14 @@ export function Editor({
     },
   });
 
+  const [previewExcluded, setPreviewExcluded] = useState<string[]>([]);
+  const togglePreviewSuggestion = (id: string) =>
+    setPreviewExcluded((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   const renderPropsQuery = useQuery({
-    queryKey: ['render-props', projectId],
+    queryKey: ['render-props', projectId, previewExcluded],
     queryFn: async () => {
-      const res = await fetch(`/api/projects/${projectId}/render-props`);
+      const qs = previewExcluded.length > 0 ? `?exclude=${previewExcluded.join(',')}` : '';
+      const res = await fetch(`/api/projects/${projectId}/render-props${qs}`);
       if (!res.ok) return null;
       return (await res.json()).props as VlogInputProps;
     },
@@ -290,6 +294,8 @@ export function Editor({
             currentFrame={currentFrame}
             fps={renderPropsQuery.data?.fps ?? 30}
             onChatSuggestion={setChatSuggestionId}
+            previewExcluded={previewExcluded}
+            onTogglePreviewSuggestion={togglePreviewSuggestion}
           />
         </>
       )}

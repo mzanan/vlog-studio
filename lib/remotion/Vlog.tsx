@@ -62,6 +62,7 @@ function SegmentVideo({
           startFrom={Math.round(segment.trimStartSec * fps)}
           endAt={Math.round(segment.trimEndSec * fps)}
           volume={audioVolume}
+          playbackRate={segment.playbackRate}
           style={{ width: '100%', height: '100%' }}
         />
       </div>

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { Prisma } from '@/lib/generated/prisma/client';
 import { generateEdl, currentProvider, buildManualPrompt, ClipForPlanning } from '@/lib/llm';
+import { loadVisionTags, visionTagForFilename } from '@/lib/chapters';
 import { LlmEdl, PlanInput, resolveLlmEdl, CutPreset, DEFAULT_CUT_PRESET, isValidCutPreset } from '@/lib/llm/prompts';
 import { writeLlmLog, summarizeInput, renderedUserMessage } from '@/lib/llm/log';
 import { Edl, buildDefaultEdl, isValidEdl } from '@/lib/edl';
@@ -32,20 +33,31 @@ async function loadPlanInput(projectId: string, cutPreset: CutPreset) {
     return { error: 'El proyecto no tiene clips', status: 409 as const };
   }
 
-  const clips: ClipForPlanning[] = project.clips.map((c) => ({
-    id: c.id,
-    filename: c.filename,
-    kind: c.hasVoice ? 'a-camara' : 'b-roll',
-    durationMs: c.durationMs,
-    words: c.hasVoice
-      ? c.segments.map((s) => ({
-          wordIndex: s.wordIndex,
-          startMs: s.startMs,
-          endMs: s.endMs,
-          text: s.text,
-        }))
-      : [],
-  }));
+  let visionTags: Awaited<ReturnType<typeof loadVisionTags>> = [];
+  try {
+    visionTags = await loadVisionTags();
+  } catch {
+    visionTags = [];
+  }
+
+  const clips: ClipForPlanning[] = project.clips.map((c) => {
+    const visionTag = c.hasVoice ? undefined : visionTagForFilename(c.filename, visionTags);
+    return {
+      id: c.id,
+      filename: c.filename,
+      kind: c.hasVoice ? 'a-camara' : 'b-roll',
+      durationMs: c.durationMs,
+      words: c.hasVoice
+        ? c.segments.map((s) => ({
+            wordIndex: s.wordIndex,
+            startMs: s.startMs,
+            endMs: s.endMs,
+            text: s.text,
+          }))
+        : [],
+      visionTag,
+    };
+  });
 
   const voiceStyleSamples = await sampleUserVoiceStyle(projectId);
 
@@ -85,7 +97,7 @@ export async function GET(req: NextRequest, ctx: RouteContext<'/api/projects/[id
   const clips = await prisma.clip.findMany({
     where: { projectId },
     orderBy: { createdAt: 'asc' },
-    select: { id: true, durationMs: true },
+    select: { id: true, durationMs: true, hasVoice: true },
   });
   if (clips.length === 0) {
     return Response.json({ provider: currentProvider(), edl: null, suggestions: plan.suggestions, isDefault: false, planVersion: plan.planVersion });
@@ -144,7 +156,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
     // (se persiste recién en el write final de abajo, junto con las suggestions).
     const plan = await loadProjectPlan(projectId);
     const currentEdl: Edl = plan?.edl
-      ?? buildDefaultEdl(loaded.project.clips.map((c) => ({ id: c.id, durationMs: c.durationMs })));
+      ?? buildDefaultEdl(loaded.project.clips.map((c) => ({ id: c.id, durationMs: c.durationMs, hasVoice: c.hasVoice })));
 
     const diff = diffEdls(currentEdl, resolvedLlmEdl);
     const newSuggestions = buildSuggestionsFromDiff(diff);

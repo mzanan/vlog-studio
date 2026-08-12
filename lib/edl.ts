@@ -20,7 +20,16 @@ export type EdlBrollSegment = {
   clipId: string;
   inMs: number;
   outMs: number;
+  speed?: number;
 };
+
+export const MIN_BROLL_SPEED = 1;
+export const MAX_BROLL_SPEED = 3;
+
+export function clampBrollSpeed(speed: number | undefined): number {
+  if (typeof speed !== 'number' || Number.isNaN(speed)) return 1;
+  return Math.max(MIN_BROLL_SPEED, Math.min(MAX_BROLL_SPEED, speed));
+}
 
 export type EdlSegment = EdlClipSegment | EdlBrollSegment;
 
@@ -92,6 +101,11 @@ export function segmentDurationMs(s: EdlSegment): number {
   return s.outMs - s.inMs;
 }
 
+export function playbackDurationMs(s: EdlSegment): number {
+  const speed = s.kind === 'broll' ? clampBrollSpeed(s.speed) : 1;
+  return (s.outMs - s.inMs) / speed;
+}
+
 export function totalDurationMs(edl: Edl): number {
   return edl.segments.reduce((acc, s) => acc + segmentDurationMs(s), 0);
 }
@@ -117,17 +131,14 @@ export function isValidEdl(value: unknown): value is Edl {
 
 // Fallback cuando el proyecto no tiene EDL persistido: todos los clips
 // full-length sin VO ni música, en el orden recibido.
-export function buildDefaultEdl(clips: Array<{ id: string; durationMs: number }>): Edl {
+export function buildDefaultEdl(clips: Array<{ id: string; durationMs: number; hasVoice?: boolean }>): Edl {
   return {
     version: 2,
-    segments: clips.map((c) => ({
-      id: randomUUID(),
-      kind: 'clip',
-      clipId: c.id,
-      inMs: 0,
-      outMs: c.durationMs,
-      cutReason: '',
-    })),
+    segments: clips.map((c): EdlSegment =>
+      c.hasVoice === false
+        ? { id: randomUUID(), kind: 'broll', clipId: c.id, inMs: 0, outMs: c.durationMs }
+        : { id: randomUUID(), kind: 'clip', clipId: c.id, inMs: 0, outMs: c.durationMs, cutReason: '' },
+    ),
     originalOrder: clips.map((c) => c.id),
     voiceover: { fullScript: '', cues: [] },
     music: { sections: [] },

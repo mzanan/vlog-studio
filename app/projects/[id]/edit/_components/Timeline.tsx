@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ActionIcon, Group, Paper, ScrollArea, Stack, Text, Tooltip } from '@mantine/core';
 import { IconZoomIn, IconZoomOut } from '@tabler/icons-react';
 import { PlayerRef } from '@remotion/player';
-import { Edl, EdlSegment, MusicSection, segmentDurationMs } from '@/lib/edl';
+import { Edl, EdlSegment, MusicSection, playbackDurationMs } from '@/lib/edl';
 import { Suggestion, SuggestionType } from '@/lib/suggestions';
 import { useLocalStorageValue, setLocalStorageValue } from '@/hooks/useLocalStorageValue';
 import { ClipMeta } from './Editor';
@@ -46,6 +46,8 @@ export function Timeline({
   currentFrame,
   fps,
   onChatSuggestion,
+  previewExcluded,
+  onTogglePreviewSuggestion,
 }: {
   projectId: string;
   edl: Edl;
@@ -56,6 +58,8 @@ export function Timeline({
   currentFrame: number;
   fps: number;
   onChatSuggestion: (id: string) => void;
+  previewExcluded: string[];
+  onTogglePreviewSuggestion: (id: string) => void;
 }) {
   // Zoom: persiste por proyecto en localStorage.
   const zoomKey = `vlog-studio:zoom:${projectId}`;
@@ -71,12 +75,12 @@ export function Timeline({
         id: seg.id,
         idx,
         seg,
-        widthPx: (segmentDurationMs(seg) / 1000) * pxPerSec,
+        widthPx: (playbackDurationMs(seg) / 1000) * pxPerSec,
       })),
     [edl.segments, pxPerSec],
   );
 
-  const totalMs = videoItems.reduce((acc, it) => acc + segmentDurationMs(it.seg), 0);
+  const totalMs = videoItems.reduce((acc, it) => acc + playbackDurationMs(it.seg), 0);
   const totalWidthPx = Math.max(600, (totalMs / 1000) * pxPerSec + 40);
   const clipsLookup = useMemo(() => Object.fromEntries(clips.map((c) => [c.id, c])), [clips]);
 
@@ -242,6 +246,8 @@ export function Timeline({
                   onAcceptSuggestion={onAcceptSug}
                   onRejectSuggestion={onRejectSug}
                   onChatSuggestion={onChatSuggestion}
+                  previewExcluded={previewExcluded}
+                  onTogglePreviewSuggestion={onTogglePreviewSuggestion}
                 />
               </TrackRow>
               <TrackRow label="Música">

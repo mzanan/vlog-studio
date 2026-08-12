@@ -7,6 +7,7 @@ export type SegmentProp = {
   trimStartSec: number;
   trimEndSec: number;
   durationFrames: number;
+  playbackRate: number;
   clipWidth: number;
   clipHeight: number;
   // Multiplicador linear sobre el audio del video original (1 = sin cambio).

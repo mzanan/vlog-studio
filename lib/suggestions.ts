@@ -24,11 +24,13 @@ export type TrimSegmentPayload = {
   newInMs: number;
   newOutMs: number;
   newCutReason: string;
+  prevSpeed?: number;
+  newSpeed?: number;
 };
 
 export type SplitSegmentPayload = {
   segmentId: string;
-  splits: Array<{ inMs: number; outMs: number; cutReason: string }>;
+  splits: Array<{ inMs: number; outMs: number; cutReason: string; speed?: number }>;
 };
 
 export type HideClipPayload = {
@@ -107,6 +109,19 @@ export class SuggestionApplyError extends Error {
   }
 }
 
+export function applyPendingSuggestions(edl: Edl, suggestions: Suggestion[]): Edl {
+  let result = edl;
+  for (const s of suggestions) {
+    if (s.status !== 'pending') continue;
+    try {
+      result = applySuggestion(result, s);
+    } catch (err) {
+      if (!(err instanceof SuggestionApplyError)) throw err;
+    }
+  }
+  return result;
+}
+
 export function applySuggestion(edl: Edl, suggestion: Suggestion): Edl {
   switch (suggestion.type) {
     case 'trim-segment':
@@ -133,7 +148,7 @@ function applyTrimSegment(edl: Edl, p: TrimSegmentPayload): Edl {
   const next: EdlSegment =
     prev.kind === 'clip'
       ? { ...prev, inMs: p.newInMs, outMs: p.newOutMs, cutReason: p.newCutReason }
-      : { ...prev, inMs: p.newInMs, outMs: p.newOutMs };
+      : { ...prev, inMs: p.newInMs, outMs: p.newOutMs, speed: p.newSpeed ?? prev.speed };
   const segments = [...edl.segments];
   segments[idx] = next;
   return { ...edl, segments };
@@ -162,6 +177,7 @@ function applySplitSegment(edl: Edl, p: SplitSegmentPayload): Edl {
       clipId: prev.clipId,
       inMs: s.inMs,
       outMs: s.outMs,
+      speed: s.speed ?? prev.speed,
     };
     return out;
   });
