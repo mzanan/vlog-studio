@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { stat } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
-import { Readable } from 'node:stream';
 
 export type ServeFileOptions = {
   contentType: string;
@@ -97,15 +96,44 @@ function streamFromFile(
   signal?: AbortSignal,
 ): ReadableStream<Uint8Array> {
   const nodeStream = createReadStream(filePath, { start, end });
-  // Si el browser cancela la Range request (típico al seekear), destruimos el
-  // read stream para evitar `Invalid state: Controller is already closed`.
-  if (signal) {
-    if (signal.aborted) nodeStream.destroy();
-    else signal.addEventListener('abort', () => nodeStream.destroy(), { once: true });
-  }
-  // Swallow errores de stream destruido — son comportamiento esperado en aborts.
-  nodeStream.on('error', () => {});
-  return Readable.toWeb(nodeStream) as ReadableStream<Uint8Array>;
+  let closed = false;
+
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      const safeClose = () => {
+        if (closed) return;
+        closed = true;
+        try {
+          controller.close();
+        } catch {}
+      };
+      const safeError = (err: unknown) => {
+        if (closed) return;
+        closed = true;
+        try {
+          controller.error(err);
+        } catch {}
+      };
+
+      nodeStream.on('data', (chunk) => {
+        if (closed) return;
+        try {
+          controller.enqueue(new Uint8Array(chunk as Buffer));
+        } catch {}
+      });
+      nodeStream.on('end', safeClose);
+      nodeStream.on('close', safeClose);
+      nodeStream.on('error', safeError);
+
+      if (signal) {
+        if (signal.aborted) nodeStream.destroy();
+        else signal.addEventListener('abort', () => nodeStream.destroy(), { once: true });
+      }
+    },
+    cancel() {
+      nodeStream.destroy();
+    },
+  });
 }
 
 export function getBaseUrl(req: NextRequest): string {
