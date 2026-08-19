@@ -128,7 +128,7 @@ function buildUserMessage(input: RefineInput): string {
 
 export async function refineSuggestion(input: RefineInput): Promise<RefineResult> {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('GEMINI_API_KEY no configurada');
+  if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
 
   const ai = new GoogleGenAI({ apiKey });
   const model = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
@@ -144,18 +144,18 @@ export async function refineSuggestion(input: RefineInput): Promise<RefineResult
   });
 
   const text = response.text;
-  if (!text) throw new Error('Gemini devolvió respuesta vacía');
+  if (!text) throw new Error('Gemini returned an empty response');
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
   } catch {
-    throw new Error(`Gemini devolvió JSON inválido: ${text.slice(0, 300)}`);
+    throw new Error(`Gemini returned invalid JSON: ${text.slice(0, 300)}`);
   }
 
-  if (!parsed || typeof parsed !== 'object') throw new Error('JSON no es objeto');
+  if (!parsed || typeof parsed !== 'object') throw new Error('JSON is not an object');
   const obj = parsed as { reply?: unknown; updatedPayload?: unknown };
-  if (typeof obj.reply !== 'string') throw new Error('reply faltante o inválido');
+  if (typeof obj.reply !== 'string') throw new Error('missing or invalid reply');
 
   const updatedPayload =
     obj.updatedPayload && typeof obj.updatedPayload === 'object'

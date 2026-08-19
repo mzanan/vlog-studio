@@ -7,13 +7,13 @@ import { SuggestionActions } from './SuggestionActions';
 import { useSuggestionMutations } from './useSuggestionMutations';
 
 const TYPE_LABELS: Record<SuggestionType, string> = {
-  'trim-segment': 'Recortar clip',
-  'split-segment': 'Partir clip',
-  'hide-clip': 'Omitir clip',
-  'add-music-section': 'Agregar música',
-  'replace-music-track': 'Cambiar música',
+  'trim-segment': 'Trim clip',
+  'split-segment': 'Split clip',
+  'hide-clip': 'Skip clip',
+  'add-music-section': 'Add music',
+  'replace-music-track': 'Change music',
   'set-vo-script': 'Voiceover',
-  'add-vo-cue': 'Cue VO',
+  'add-vo-cue': 'VO cue',
 };
 
 const VIDEO_TYPES: SuggestionType[] = ['trim-segment', 'split-segment', 'hide-clip'];
@@ -54,13 +54,13 @@ export function SuggestionsPanel({
       onClose={onClose}
       position="right"
       size="md"
-      title={`Sugerencias AI (${pending.length} pendientes)`}
+      title={`AI suggestions (${pending.length} pending)`}
       overlayProps={{ opacity: 0.3 }}
     >
       <Stack gap="md">
         {pending.length === 0 ? (
           <Text c="dimmed" size="sm">
-            No hay sugerencias pendientes. Generá una nueva propuesta desde el botón &quot;Generar sugerencia AI&quot;.
+            No pending suggestions. Generate a new proposal from the &quot;Generate AI suggestion&quot; button.
           </Text>
         ) : (
           <>
@@ -72,7 +72,7 @@ export function SuggestionsPanel({
                 onClick={() => bulkAction(pending.map((s) => s.id), 'accept')}
                 loading={bulk.isPending}
               >
-                Aceptar todas ({pending.length})
+                Accept all ({pending.length})
               </Button>
               <Button
                 size="xs"
@@ -81,7 +81,7 @@ export function SuggestionsPanel({
                 onClick={() => bulkAction(pending.map((s) => s.id), 'reject')}
                 loading={bulk.isPending}
               >
-                Rechazar todas
+                Reject all
               </Button>
             </Group>
 
@@ -96,7 +96,7 @@ export function SuggestionsPanel({
               busy={accept.isPending || reject.isPending || bulk.isPending}
             />
             <SectionBlock
-              title="Música"
+              title="Music"
               suggestions={musicPending}
               onAcceptAll={() => bulkAction(musicPending.map((s) => s.id), 'accept')}
               onRejectAll={() => bulkAction(musicPending.map((s) => s.id), 'reject')}
@@ -174,10 +174,10 @@ function SectionBlock({
             <Text size="xs" fw={600}>{title}</Text>
             <Badge size="xs" variant="light">{suggestions.length}</Badge>
             <Button size="compact-xs" variant="subtle" color="teal" onClick={onAcceptAll} disabled={busy}>
-              ✓ todas
+              ✓ all
             </Button>
             <Button size="compact-xs" variant="subtle" color="red" onClick={onRejectAll} disabled={busy}>
-              ✗ todas
+              ✗ all
             </Button>
           </Group>
         }

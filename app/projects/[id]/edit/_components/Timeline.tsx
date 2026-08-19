@@ -128,7 +128,7 @@ export function Timeline({
         body: JSON.stringify({ edl: newEdl, expectedPlanVersion: requirePlanVersion(qc, projectId) }),
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body?.error ?? 'falló');
+      if (!res.ok) throw new Error(body?.error ?? 'failed');
       return body as { edl: Edl; planVersion: number };
     },
     invalidateKeys: [['render-props', projectId]],
@@ -199,7 +199,7 @@ export function Timeline({
       <Stack gap="xs">
         <Group justify="space-between">
           <Text size="xs" c="dimmed">
-            Space play/pause · ←/→ ±5s · shift+←/→ ±10s · click regla o arrastrá playhead · click zona vacía de música para insertar
+            Space play/pause · ←/→ ±5s · shift+←/→ ±10s · click ruler or drag playhead · click empty music zone to insert
           </Text>
           <Group gap={4}>
             <Tooltip label="Zoom out" withinPortal>
@@ -250,7 +250,7 @@ export function Timeline({
                   onTogglePreviewSuggestion={onTogglePreviewSuggestion}
                 />
               </TrackRow>
-              <TrackRow label="Música">
+              <TrackRow label="Music">
                 <MusicTrack
                   sections={edl.music.sections}
                   suggestions={musicSuggestions}
@@ -263,7 +263,7 @@ export function Timeline({
                   onChatSuggestion={onChatSuggestion}
                 />
               </TrackRow>
-              <TrackRow label="Voz">
+              <TrackRow label="Voice">
                 <VoTrack
                   cues={edl.voiceover.cues}
                   suggestions={voSuggestions}
@@ -357,7 +357,7 @@ function Ruler({
         minWidth: widthPx,
         cursor: 'pointer',
       }}
-      title="Click para mover el playhead"
+      title="Click to move the playhead"
     >
       {ticks.map((s) => (
         <div

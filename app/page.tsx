@@ -34,14 +34,14 @@ export default async function Home() {
         />
 
         {projects.length === 0 ? (
-          <Text c="dimmed">Sin proyectos aún. Crea uno arriba.</Text>
+          <Text c="dimmed">No projects yet. Create one above.</Text>
         ) : (
           <Table withTableBorder verticalSpacing="sm">
             <TableThead>
               <TableTr>
-                <TableTh>Proyecto</TableTh>
+                <TableTh>Project</TableTh>
                 <TableTh>Clips</TableTh>
-                <TableTh>Actualizado</TableTh>
+                <TableTh>Updated</TableTh>
               </TableTr>
             </TableThead>
             <TableTbody>

@@ -14,16 +14,16 @@ export async function POST(
   const { id: projectId, suggestionId } = await ctx.params;
   const body = await req.json().catch(() => ({}));
   const expectedPlanVersion = parseExpectedPlanVersion(body);
-  if (expectedPlanVersion === null) return Response.json({ error: 'falta expectedPlanVersion' }, { status: 400 });
+  if (expectedPlanVersion === null) return Response.json({ error: 'missing expectedPlanVersion' }, { status: 400 });
 
   const plan = await loadProjectPlan(projectId);
   if (!plan) return Response.json({ error: 'project not found' }, { status: 404 });
-  if (!plan.edl) return Response.json({ error: 'project sin edl' }, { status: 409 });
+  if (!plan.edl) return Response.json({ error: 'project without edl' }, { status: 409 });
 
   const target = plan.suggestions.find((s) => s.id === suggestionId);
   if (!target) return Response.json({ error: 'suggestion not found' }, { status: 404 });
   if (target.status !== 'pending') {
-    return Response.json({ error: `suggestion ya está ${target.status}` }, { status: 409 });
+    return Response.json({ error: `suggestion is already ${target.status}` }, { status: 409 });
   }
 
   let newEdl;

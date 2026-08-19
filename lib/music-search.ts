@@ -142,7 +142,7 @@ async function fetchFromJamendo(clientId: string, opts: SearchOptions): Promise<
 
 export async function searchJamendoMusic(opts: SearchOptions): Promise<JamendoTrack[]> {
   const clientId = process.env.JAMENDO_CLIENT_ID;
-  if (!clientId) throw new Error('JAMENDO_CLIENT_ID no configurada');
+  if (!clientId) throw new Error('JAMENDO_CLIENT_ID not configured');
 
   const instrumental = opts.instrumental !== false;
   const cacheKey = buildCacheKey(opts.query, durationBand(opts.durationMs).key, instrumental);
@@ -188,7 +188,7 @@ export async function downloadTrack(track: JamendoTrack): Promise<string> {
   }
   const res = await fetch(url);
   if (!res.ok || !res.body) {
-    throw new Error(`Jamendo download HTTP ${res.status} para track ${track.trackId}`);
+    throw new Error(`Jamendo download HTTP ${res.status} for track ${track.trackId}`);
   }
   await pipeline(Readable.fromWeb(res.body as unknown as Parameters<typeof Readable.fromWeb>[0]), createWriteStream(dest));
   return dest;
@@ -218,7 +218,7 @@ export async function populateMusicSections(edl: Edl): Promise<void> {
       try {
         const track = await fetchMusicForSection(sec.query, sec.endMs - sec.startMs);
         if (!track) {
-          console.warn(`[music] sin resultados para "${sec.query}" — sección ${sec.id} queda en silencio`);
+          console.warn(`[music] no results for "${sec.query}", section ${sec.id} remains silent`);
           return;
         }
         sec.trackId = track.trackId;
@@ -228,7 +228,7 @@ export async function populateMusicSections(edl: Edl): Promise<void> {
         sec.trackLicenseUrl = track.licenseUrl;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        console.error(`[music] sección ${sec.id} ("${sec.query}") falló: ${msg}`);
+        console.error(`[music] section ${sec.id} ("${sec.query}") failed: ${msg}`);
       }
     }),
   );

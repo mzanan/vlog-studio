@@ -241,7 +241,7 @@ function SegmentBlock({
                 pointerEvents: 'auto',
               }}
             >
-              AI: ocultar
+              AI: hide
             </div>
             <div style={{ pointerEvents: 'auto' }}>
               <SuggestionActions
@@ -294,7 +294,7 @@ function SegmentBlock({
         })}
 
         {isTrimmed && (
-          <Tooltip label={`Restaurar duración completa (recortado ${(trimmedMs / 1000).toFixed(1)}s)`} withinPortal>
+          <Tooltip label={`Restore full duration (trimmed ${(trimmedMs / 1000).toFixed(1)}s)`} withinPortal>
             <ActionIcon
               size="xs"
               variant="filled"
@@ -305,7 +305,7 @@ function SegmentBlock({
                 e.stopPropagation();
                 onRestore();
               }}
-              aria-label="Restaurar duración completa"
+              aria-label="Restore full duration"
             >
               <IconArrowBackUp size={12} />
             </ActionIcon>
@@ -362,7 +362,7 @@ function TrimOverlay({
             alignItems: 'center',
           }}
         >
-          <Tooltip label={previewOff ? 'Viendo original: volver a aplicar la sugerencia en el preview' : 'Ver este clip original en el preview (sin la sugerencia)'} withinPortal>
+          <Tooltip label={previewOff ? 'Viewing original: re-apply the suggestion in the preview' : 'View this original clip in the preview (without the suggestion)'} withinPortal>
             <ActionIcon size="sm" variant={previewOff ? 'filled' : 'light'} color={previewOff ? 'orange' : 'gray'} onClick={onTogglePreview}>
               {previewOff ? <IconEyeOff size={14} /> : <IconEye size={14} />}
             </ActionIcon>
@@ -419,7 +419,7 @@ function SplitOverlay({
               borderRadius: 2,
             }}
           >
-            AI: partir en {splits.length}
+            AI: split into {splits.length}
           </div>
           <SuggestionActions onAccept={onAccept} onReject={onReject} onChat={onChat} />
         </Group>

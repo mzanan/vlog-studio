@@ -21,13 +21,13 @@ export async function POST(
   const { id: projectId } = await ctx.params;
   const body = (await req.json()) as Partial<BulkBody>;
   if (!Array.isArray(body.ids) || body.ids.length === 0) {
-    return Response.json({ error: 'ids vacío' }, { status: 400 });
+    return Response.json({ error: 'empty ids' }, { status: 400 });
   }
   if (body.action !== 'accept' && body.action !== 'reject') {
-    return Response.json({ error: 'action inválida' }, { status: 400 });
+    return Response.json({ error: 'invalid action' }, { status: 400 });
   }
   const expectedPlanVersion = parseExpectedPlanVersion(body);
-  if (expectedPlanVersion === null) return Response.json({ error: 'falta expectedPlanVersion' }, { status: 400 });
+  if (expectedPlanVersion === null) return Response.json({ error: 'missing expectedPlanVersion' }, { status: 400 });
 
   const plan = await loadProjectPlan(projectId);
   if (!plan) return Response.json({ error: 'project not found' }, { status: 404 });
@@ -58,7 +58,7 @@ export async function POST(
     return Response.json({ suggestions: updated, results, planVersion });
   }
 
-  if (!plan.edl) return Response.json({ error: 'project sin edl' }, { status: 409 });
+  if (!plan.edl) return Response.json({ error: 'project without edl' }, { status: 409 });
 
   let workingEdl: Edl = plan.edl;
   let touchedMusic = false;

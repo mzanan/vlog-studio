@@ -197,7 +197,7 @@ export function applySuggestion(edl: Edl, suggestion: Suggestion): Edl {
 
 function applyTrimSegment(edl: Edl, p: TrimSegmentPayload): Edl {
   const idx = edl.segments.findIndex((s) => s.id === p.segmentId);
-  if (idx < 0) throw new SuggestionApplyError(`segment ${p.segmentId} no existe`, 'stale-target');
+  if (idx < 0) throw new SuggestionApplyError(`segment ${p.segmentId} does not exist`, 'stale-target');
   const prev = edl.segments[idx];
   const next: EdlSegment =
     prev.kind === 'clip'
@@ -210,8 +210,8 @@ function applyTrimSegment(edl: Edl, p: TrimSegmentPayload): Edl {
 
 function applySplitSegment(edl: Edl, p: SplitSegmentPayload): Edl {
   const idx = edl.segments.findIndex((s) => s.id === p.segmentId);
-  if (idx < 0) throw new SuggestionApplyError(`segment ${p.segmentId} no existe`, 'stale-target');
-  if (p.splits.length === 0) throw new SuggestionApplyError('splits vacío', 'invalid-payload');
+  if (idx < 0) throw new SuggestionApplyError(`segment ${p.segmentId} does not exist`, 'stale-target');
+  if (p.splits.length === 0) throw new SuggestionApplyError('empty splits', 'invalid-payload');
   const prev = edl.segments[idx];
   const newPieces: EdlSegment[] = p.splits.map((s) => {
     if (prev.kind === 'clip') {
@@ -242,7 +242,7 @@ function applySplitSegment(edl: Edl, p: SplitSegmentPayload): Edl {
 function applyHideClip(edl: Edl, p: HideClipPayload): Edl {
   const segments = edl.segments.filter((s) => s.clipId !== p.clipId);
   if (segments.length === edl.segments.length) {
-    throw new SuggestionApplyError(`clip ${p.clipId} ya no está en la timeline`, 'stale-target');
+    throw new SuggestionApplyError(`clip ${p.clipId} is no longer in the timeline`, 'stale-target');
   }
   return { ...edl, segments };
 }
@@ -255,7 +255,7 @@ function applyAddMusicSection(edl: Edl, p: AddMusicSectionPayload): Edl {
 
 function applyReplaceMusicTrack(edl: Edl, p: ReplaceMusicTrackPayload): Edl {
   const idx = edl.music.sections.findIndex((s) => s.id === p.sectionId);
-  if (idx < 0) throw new SuggestionApplyError(`section ${p.sectionId} no existe`, 'stale-target');
+  if (idx < 0) throw new SuggestionApplyError(`section ${p.sectionId} does not exist`, 'stale-target');
   const prev = edl.music.sections[idx];
   const next: MusicSection = {
     ...prev,

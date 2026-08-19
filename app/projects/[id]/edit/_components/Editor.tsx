@@ -123,13 +123,13 @@ export function Editor({
         body: JSON.stringify({ cutPreset, expectedPlanVersion: requirePlanVersion(qc, projectId) }),
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body?.error ?? 'falló');
+      if (!res.ok) throw new Error(body?.error ?? 'failed');
       return body as { edl: Edl; suggestions: Suggestion[]; generated: number; planVersion: number };
     },
     invalidateKeys: [['render-props', projectId]],
     errorInvalidateKeys: [['edl', projectId]],
     onSuccessCache: (result) => syncPlanCache(qc, projectId, result),
-    successMessage: 'Sugerencias AI generadas, revisalas en la timeline o en el panel',
+    successMessage: 'AI suggestions generated, review them in the timeline or the panel',
     onSuccessExtra: () => setPanelOpen(true),
   });
 
@@ -137,11 +137,11 @@ export function Editor({
     mutationFn: async () => {
       const res = await fetch(`/api/projects/${projectId}/normalize-audio`, { method: 'POST' });
       const body = await res.json();
-      if (!res.ok) throw new Error(body?.error ?? 'falló');
+      if (!res.ok) throw new Error(body?.error ?? 'failed');
       return body as { normalized: number; failed: number };
     },
     invalidateKeys: [['render-props', projectId]],
-    successMessage: 'Audio normalizado en todos los clips',
+    successMessage: 'Audio normalized across all clips',
     errorAutoClose: 10000,
   });
 
@@ -149,15 +149,15 @@ export function Editor({
     mutationFn: async () => {
       const res = await fetch(`/api/projects/${projectId}/export`, { method: 'POST' });
       const body = await res.json();
-      if (!res.ok) throw new Error(body?.error ?? 'falló');
+      if (!res.ok) throw new Error(body?.error ?? 'failed');
       return body as { filename: string; warnings: string[] };
     },
     onMutate: () => {
       notifications.show({
         id: `render-${projectId}`,
         loading: true,
-        title: 'Renderizando vlog',
-        message: 'Toma varios minutos. No cierres el dev server.',
+        title: 'Rendering vlog',
+        message: 'Takes several minutes. Do not close the dev server.',
         autoClose: false,
         withCloseButton: false,
       });
@@ -180,9 +180,9 @@ export function Editor({
   if (clips.length === 0) {
     return (
       <Stack>
-        <Text c="dimmed">No hay clips todavía. Subí algunos en la pestaña Ingest.</Text>
+        <Text c="dimmed">No clips yet. Upload some in the Ingest tab.</Text>
         <Group>
-          <Button component="a" href={`/projects/${projectId}/ingest`}>Ir a Ingest</Button>
+          <Button component="a" href={`/projects/${projectId}/ingest`}>Go to Ingest</Button>
         </Group>
       </Stack>
     );
@@ -202,20 +202,20 @@ export function Editor({
           onClick={() => generatePlan.mutate()}
           loading={generatePlan.isPending}
           disabled={untranscribed > 0}
-          title={untranscribed > 0 ? `${untranscribed} clips sin transcribir` : undefined}
+          title={untranscribed > 0 ? `${untranscribed} clips not transcribed` : undefined}
         >
-          {hasAnySuggestion ? 'Regenerar sugerencias AI' : 'Generar sugerencias AI'}
+          {hasAnySuggestion ? 'Regenerate AI suggestions' : 'Generate AI suggestions'}
         </Button>
         <SegmentedControl
           size="sm"
           value={cutPreset}
           onChange={(v) => updateCutPreset(v as CutPreset)}
           data={[
-            { label: 'Conservador', value: 'conservative' },
-            { label: 'Balanceado', value: 'balanced' },
-            { label: 'Agresivo', value: 'aggressive' },
+            { label: 'Conservative', value: 'conservative' },
+            { label: 'Balanced', value: 'balanced' },
+            { label: 'Aggressive', value: 'aggressive' },
           ]}
-          title="Conservador: sólo bordes. Balanceado: limpieza ordinaria. Agresivo: cortes densos para vlog rápido."
+          title="Conservative: edges only. Balanced: ordinary cleanup. Aggressive: dense cuts for a fast-paced vlog."
         />
         <Indicator
           inline
@@ -230,7 +230,7 @@ export function Editor({
             onClick={() => setPanelOpen(true)}
             disabled={!hasAnySuggestion}
           >
-            Sugerencias
+            Suggestions
           </Button>
         </Indicator>
         <Button
@@ -241,31 +241,31 @@ export function Editor({
           loading={startExport.isPending}
           disabled={!edl}
         >
-          Renderizar 16:9
+          Render 16:9
         </Button>
         <Button
           variant="default"
           leftSection={<IconMicrophone size={16} />}
           onClick={() => setVoModalOpen(true)}
           disabled={!edl?.voiceover.fullScript}
-          title={!edl?.voiceover.fullScript ? 'Aceptá la sugerencia de VO o escribí el script manualmente' : undefined}
+          title={!edl?.voiceover.fullScript ? 'Accept the VO suggestion or write the script manually' : undefined}
         >
-          Grabar VO
+          Record VO
         </Button>
         <Button
           variant="default"
           leftSection={<IconWaveSine size={16} />}
           onClick={() => normalizeAudio.mutate()}
           loading={normalizeAudio.isPending}
-          title="Mide loudness de cada clip y aplica gain en el render para que todos suenen parejos (-16 LUFS)"
+          title="Measures loudness of each clip and applies gain at render time so everything sounds even (-16 LUFS)"
         >
-          Normalizar audio
+          Normalize audio
         </Button>
         <Button variant="default" component="a" href={`/projects/${projectId}/ingest`}>
           Clips ({clips.length})
         </Button>
         {untranscribed > 0 && (
-          <Text size="sm" c="yellow">{untranscribed} sin transcribir</Text>
+          <Text size="sm" c="yellow">{untranscribed} not transcribed</Text>
         )}
       </Group>
 
@@ -273,7 +273,7 @@ export function Editor({
         <Loader />
       ) : !edl ? (
         <Text c="dimmed">
-          No hay clips todavía. Subí algunos desde el botón &quot;Clips&quot; arriba.
+          No clips yet. Upload some from the &quot;Clips&quot; button above.
         </Text>
       ) : (
         <>

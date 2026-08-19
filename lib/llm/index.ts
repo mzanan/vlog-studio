@@ -17,7 +17,7 @@ export async function generateEdl(input: PlanInput): Promise<{ edl: Edl; llmEdl:
   const provider = currentProvider();
   if (provider === 'gemini') return generateEdlGemini(input);
   if (provider === 'anthropic') return generateEdlAnthropic(input);
-  throw new Error('Modo manual: usá GET /plan/prompt y POST /plan con el JSON pegado');
+  throw new Error('Manual mode: use GET /plan/prompt and POST /plan with the pasted JSON');
 }
 
 export function buildManualPrompt(input: PlanInput): string {
@@ -28,7 +28,7 @@ export async function generateChapters(tags: VisionTag[]): Promise<{ chapters: C
   const provider = currentProvider();
   if (provider === 'gemini') return generateChaptersGemini(tags);
   if (provider === 'anthropic') return generateChaptersAnthropic(tags);
-  throw new Error('Modo manual no soportado para agrupamiento de capítulos');
+  throw new Error('Manual mode not supported for chapter grouping');
 }
 
 export type { PlanInput, ClipForPlanning, CutPreset } from './prompts';

@@ -364,7 +364,7 @@ export function resolveLlmEdl(llm: LlmEdl, input: PlanInput): Edl {
           clipId: clip.id,
           inMs,
           outMs,
-          cutReason: '(clip omitido por la AI, reinsertado full-length para que decidas)',
+          cutReason: '(clip omitted by the AI, reinserted full-length for you to decide)',
         }
       : { id: randomUUID(), kind: 'broll', clipId: clip.id, inMs, outMs, cutReason: clip.bestMoment?.reason };
     // origIdx fuera del rango original; no se referencia desde cues/music.

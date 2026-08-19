@@ -21,7 +21,7 @@ export function useSuggestionMutations(projectId: string, onChanged: () => void)
         },
       );
       const body = await res.json();
-      if (!res.ok) throw new Error(body?.error ?? 'falló');
+      if (!res.ok) throw new Error(body?.error ?? 'failed');
       return body;
     },
     invalidateKeys,
@@ -42,7 +42,7 @@ export function useSuggestionMutations(projectId: string, onChanged: () => void)
         },
       );
       const body = await res.json();
-      if (!res.ok) throw new Error(body?.error ?? 'falló');
+      if (!res.ok) throw new Error(body?.error ?? 'failed');
       return body;
     },
     invalidateKeys,
@@ -60,7 +60,7 @@ export function useSuggestionMutations(projectId: string, onChanged: () => void)
         body: JSON.stringify({ ...args, expectedPlanVersion: requirePlanVersion(qc, projectId) }),
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body?.error ?? 'falló');
+      if (!res.ok) throw new Error(body?.error ?? 'failed');
       return body;
     },
     invalidateKeys,

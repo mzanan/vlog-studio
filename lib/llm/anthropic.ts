@@ -111,7 +111,7 @@ export async function generateEdlAnthropic(input: PlanInput): Promise<{ edl: Edl
   const toolUse = response.content.find(
     (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use' && b.name === 'emit_edl',
   );
-  if (!toolUse) throw new Error('Claude no devolvió tool_use de emit_edl');
+  if (!toolUse) throw new Error('Claude did not return tool_use for emit_edl');
 
   const llmEdl = toolUse.input as LlmEdl;
   return { edl: resolveLlmEdl(llmEdl, input), llmEdl };
@@ -159,7 +159,7 @@ export async function generateChaptersAnthropic(
   const toolUse = response.content.find(
     (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use' && b.name === 'emit_chapters'
   );
-  if (!toolUse) throw new Error('Claude no devolvió tool_use de emit_chapters');
+  if (!toolUse) throw new Error('Claude did not return tool_use for emit_chapters');
 
   const llmResult = toolUse.input as LlmChaptersResult;
   return { chapters: resolveLlmChapters(llmResult, tags), llmResult };

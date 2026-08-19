@@ -25,18 +25,18 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
   const body = (await req.json()) as Partial<CreateBody>;
 
   if (typeof body.startMs !== 'number' || typeof body.endMs !== 'number' || body.endMs <= body.startMs) {
-    return Response.json({ error: 'rango inválido' }, { status: 400 });
+    return Response.json({ error: 'invalid range' }, { status: 400 });
   }
-  if (!body.query || !body.mood) return Response.json({ error: 'falta query o mood' }, { status: 400 });
+  if (!body.query || !body.mood) return Response.json({ error: 'missing query or mood' }, { status: 400 });
   if (!body.energy || !VALID_ENERGIES.includes(body.energy)) {
-    return Response.json({ error: 'energy inválida' }, { status: 400 });
+    return Response.json({ error: 'invalid energy' }, { status: 400 });
   }
-  if (!body.track?.trackId) return Response.json({ error: 'falta track' }, { status: 400 });
+  if (!body.track?.trackId) return Response.json({ error: 'missing track' }, { status: 400 });
   const expectedPlanVersion = parseExpectedPlanVersion(body);
-  if (expectedPlanVersion === null) return Response.json({ error: 'falta expectedPlanVersion' }, { status: 400 });
+  if (expectedPlanVersion === null) return Response.json({ error: 'missing expectedPlanVersion' }, { status: 400 });
 
   const plan = await loadProjectPlan(projectId);
-  if (!plan?.edl) return Response.json({ error: 'sin EDL editable' }, { status: 409 });
+  if (!plan?.edl) return Response.json({ error: 'no editable EDL' }, { status: 409 });
 
   await downloadTrack(body.track);
 
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
     mood: body.mood,
     energy: body.energy,
     baseVolume: typeof body.baseVolume === 'number' ? body.baseVolume : defaultBaseVolumeFor(body.energy),
-    reason: body.reason ?? 'insertado manualmente',
+    reason: body.reason ?? 'manually inserted',
     trackId: body.track.trackId,
     trackTitle: body.track.title,
     trackArtist: body.track.artist,

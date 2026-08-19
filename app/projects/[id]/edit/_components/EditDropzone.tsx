@@ -16,7 +16,7 @@ export function EditDropzone({ projectId }: { projectId: string }) {
     <Stack gap={4}>
       <Dropzone
         onDrop={(files) => uploadFiles(files)}
-        onReject={() => notifications.show({ color: 'red', message: 'Archivo rechazado (tipo no soportado)' })}
+        onReject={() => notifications.show({ color: 'red', message: 'File rejected (unsupported type)' })}
         loading={isUploading}
         accept={VIDEO_MIME}
         multiple
@@ -27,15 +27,15 @@ export function EditDropzone({ projectId }: { projectId: string }) {
           <Dropzone.Reject><IconX size={24} /></Dropzone.Reject>
           <Dropzone.Idle><IconVideo size={24} /></Dropzone.Idle>
           <Stack gap={0}>
-            <Text size="sm">Arrastrá más clips acá o hacé click</Text>
-            <Text size="xs" c="dimmed">MP4, MOV, MKV, WebM · se suben de a uno y se transcriben automáticamente</Text>
+            <Text size="sm">Drag more clips here or click</Text>
+            <Text size="xs" c="dimmed">MP4, MOV, MKV, WebM: uploaded one at a time and transcribed automatically</Text>
           </Stack>
         </Group>
       </Dropzone>
 
       {isUploading && queue.length > 0 && (
         <Stack gap={2}>
-          <Text size="xs" c="dimmed">Subiendo {doneCount}/{queue.length}…</Text>
+          <Text size="xs" c="dimmed">Uploading {doneCount}/{queue.length}…</Text>
           <Progress value={(doneCount / queue.length) * 100} size="xs" />
         </Stack>
       )}

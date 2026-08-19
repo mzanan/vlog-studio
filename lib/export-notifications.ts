@@ -6,7 +6,7 @@ export function showExportResultNotification(opts: { filename: string; warnings:
   if (opts.warnings.length > 0) {
     notifications.show({
       color: 'yellow',
-      title: `Render listo con ${opts.warnings.length} advertencia${opts.warnings.length > 1 ? 's' : ''}`,
+      title: `Render ready with ${opts.warnings.length} warning${opts.warnings.length > 1 ? 's' : ''}`,
       message: `${opts.filename}: ${opts.warnings.join(' ')}`,
       autoClose: false,
     });
@@ -14,7 +14,7 @@ export function showExportResultNotification(opts: { filename: string; warnings:
   }
   notifications.show({
     color: 'teal',
-    title: 'Render listo',
+    title: 'Render ready',
     message: opts.filename,
     autoClose: 6000,
   });

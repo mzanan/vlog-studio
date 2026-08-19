@@ -49,7 +49,7 @@ export function diffEdls(currentEdl: Edl, resolvedLlmEdl: Edl): DiffEntry[] {
         type: 'set-vo-script',
         data: { prevFullScript: '', newFullScript: resolvedLlmEdl.voiceover.fullScript },
       },
-      rationale: 'AI propone un voiceover lineal',
+      rationale: 'AI proposes a linear voiceover',
     });
   }
   if (currentEdl.voiceover.cues.length === 0) {
@@ -57,7 +57,7 @@ export function diffEdls(currentEdl: Edl, resolvedLlmEdl: Edl): DiffEntry[] {
       const preview = cue.text.slice(0, 60) + (cue.text.length > 60 ? '…' : '');
       entries.push({
         body: { type: 'add-vo-cue', data: { cue } },
-        rationale: `Cue VO: ${preview}`,
+        rationale: `VO cue: ${preview}`,
       });
     }
   }
@@ -90,7 +90,7 @@ function diffClip(
   if (current.length === 1 && llm.length === 0) {
     out.push({
       body: { type: 'hide-clip', data: { clipId } },
-      rationale: 'AI sugiere omitir este clip entero',
+      rationale: 'AI suggests omitting this entire clip',
     });
     return;
   }
@@ -112,9 +112,9 @@ function diffClip(
     const speedChanged = isBroll && prevSpeed !== newSpeed;
     let rationale = cutReason;
     if (!rationale) {
-      if (rangeChanged && speedChanged) rationale = `AI propone recortar y acelerar a ${newSpeed}x`;
-      else if (speedChanged) rationale = `AI propone acelerar a ${newSpeed}x, sin recortar`;
-      else rationale = 'AI propone recortar este clip';
+      if (rangeChanged && speedChanged) rationale = `AI proposes trimming and speeding up to ${newSpeed}x`;
+      else if (speedChanged) rationale = `AI proposes speeding up to ${newSpeed}x, without trimming`;
+      else rationale = 'AI proposes trimming this clip';
     }
     out.push({
       body: {
@@ -150,7 +150,7 @@ function diffClip(
         })),
       },
     },
-    rationale: `AI propone partir este clip en ${llm.length} tramos`,
+    rationale: `AI proposes splitting this clip into ${llm.length} parts`,
   });
 }
 

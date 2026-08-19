@@ -28,19 +28,19 @@ export function NewProjectButton() {
       setIntent('');
       router.push(`/projects/${data.id}/ingest`);
     },
-    onError: () => notifications.show({ color: 'red', message: 'No se pudo crear el proyecto' }),
+    onError: () => notifications.show({ color: 'red', message: 'Could not create the project' }),
   });
 
   return (
     <>
       <Button onClick={() => setOpen(true)} maw={220}>
-        Nuevo proyecto
+        New project
       </Button>
 
-      <Modal opened={open} onClose={() => setOpen(false)} title="Nuevo proyecto" centered>
+      <Modal opened={open} onClose={() => setOpen(false)} title="New project" centered>
         <Stack>
           <TextInput
-            label="Nombre"
+            label="Name"
             placeholder="Vlog Bariloche"
             value={name}
             onChange={(e) => setName(e.currentTarget.value)}
@@ -48,21 +48,21 @@ export function NewProjectButton() {
           />
           <Textarea
             label="Intent"
-            description="Brief para el editor AI (tono, duración aproximada, audiencia)"
-            placeholder="Vlog de viaje, casual, ~5min, audiencia general"
+            description="Brief for the AI editor (tone, approximate duration, audience)"
+            placeholder="Travel vlog, casual, ~5min, general audience"
             value={intent}
             onChange={(e) => setIntent(e.currentTarget.value)}
             autosize
             minRows={2}
           />
           <Group justify="flex-end">
-            <Button variant="default" onClick={() => setOpen(false)}>Cancelar</Button>
+            <Button variant="default" onClick={() => setOpen(false)}>Cancel</Button>
             <Button
               onClick={() => mutation.mutate()}
               loading={mutation.isPending}
               disabled={!name.trim()}
             >
-              Crear
+              Create
             </Button>
           </Group>
         </Stack>

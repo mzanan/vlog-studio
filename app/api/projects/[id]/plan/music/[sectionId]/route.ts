@@ -14,15 +14,15 @@ type ApplyBody = {
 export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[id]/plan/music/[sectionId]'>) {
   const { id: projectId, sectionId } = await ctx.params;
   const body = (await req.json()) as Partial<ApplyBody>;
-  if (!body?.track?.trackId) return Response.json({ error: 'falta track' }, { status: 400 });
+  if (!body?.track?.trackId) return Response.json({ error: 'missing track' }, { status: 400 });
   const expectedPlanVersion = parseExpectedPlanVersion(body);
-  if (expectedPlanVersion === null) return Response.json({ error: 'falta expectedPlanVersion' }, { status: 400 });
+  if (expectedPlanVersion === null) return Response.json({ error: 'missing expectedPlanVersion' }, { status: 400 });
 
   const plan = await loadProjectPlan(projectId);
-  if (!plan?.edl) return Response.json({ error: 'sin EDL editable' }, { status: 409 });
+  if (!plan?.edl) return Response.json({ error: 'no editable EDL' }, { status: 409 });
 
   const section = plan.edl.music.sections.find((s) => s.id === sectionId);
-  if (!section) return Response.json({ error: 'section no existe' }, { status: 404 });
+  if (!section) return Response.json({ error: 'section does not exist' }, { status: 404 });
 
   await downloadTrack(body.track);
 

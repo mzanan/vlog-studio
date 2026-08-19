@@ -3,7 +3,7 @@ import { Prisma } from './generated/prisma/client';
 
 export class StaleWriteError extends Error {
   constructor() {
-    super('El proyecto cambió en otra pestaña o sesión mientras editabas. Recargá para ver el estado actual.');
+    super('The project changed in another tab or session while you were editing. Reload to see the current state.');
     this.name = 'StaleWriteError';
   }
 }

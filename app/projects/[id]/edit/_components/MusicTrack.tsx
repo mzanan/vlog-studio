@@ -109,7 +109,7 @@ export function MusicTrack({
             pointerEvents: 'none',
           }}
         >
-          Sin secciones musicales (click acá para insertar)
+          No music sections (click here to insert)
         </div>
       )}
 
@@ -133,7 +133,7 @@ export function MusicTrack({
             fontWeight: 600,
           }}
         >
-          + insertar música
+          + insert music
         </div>
       )}
 
@@ -147,7 +147,7 @@ export function MusicTrack({
           (s) => s.type === 'replace-music-track' && s.data.sectionId === sec.id,
         );
         const tooltipLabel = clickable
-          ? `${sec.mood} · ${sec.energy} · query: ${sec.query}\n${sec.reason}\nClick para elegir música`
+          ? `${sec.mood} · ${sec.energy} · query: ${sec.query}\n${sec.reason}\nClick to pick music`
           : `${sec.mood} · ${sec.energy} · query: ${sec.query} · ${sec.reason}`;
         return (
           <Tooltip key={sec.id} label={tooltipLabel} multiline w={320} withinPortal>
@@ -174,7 +174,7 @@ export function MusicTrack({
               <div style={{ fontWeight: 600 }}>{sec.mood}</div>
               <div style={{ fontSize: 10, opacity: 0.7 }}>
                 {sec.energy}
-                {hasTrack ? ` · ${sec.trackTitle ?? 'track'}` : ' · sin track'}
+                {hasTrack ? ` · ${sec.trackTitle ?? 'track'}` : ' · no track'}
               </div>
               {replaceSug && replaceSug.type === 'replace-music-track' && (
                 <div
@@ -211,7 +211,7 @@ export function MusicTrack({
         const sec = s.data.section;
         const left = (sec.startMs / 1000) * pxPerSec;
         const width = Math.max(20, ((sec.endMs - sec.startMs) / 1000) * pxPerSec - 2);
-        const label = `AI propone: ${sec.mood} · ${sec.energy} · query: ${sec.query}\n${sec.reason}`;
+        const label = `AI proposes: ${sec.mood} · ${sec.energy} · query: ${sec.query}\n${sec.reason}`;
         return (
           <Tooltip key={s.id} label={label} multiline w={320} withinPortal>
             <div

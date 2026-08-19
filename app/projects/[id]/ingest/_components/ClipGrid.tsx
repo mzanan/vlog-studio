@@ -35,7 +35,7 @@ export function ClipGrid({ projectId, initialClips }: { projectId: string; initi
   });
 
   if (!data || data.length === 0) {
-    return <Text c="dimmed">Sin clips todavía. Subí algunos arriba.</Text>;
+    return <Text c="dimmed">No clips yet. Upload some above.</Text>;
   }
 
   return (
@@ -62,12 +62,12 @@ export function ClipGrid({ projectId, initialClips }: { projectId: string; initi
               <Badge variant="light" size="sm">{clip.fps.toFixed(0)}fps</Badge>
               {clip.transcribedAt ? (
                 <Badge color={clip.hasVoice ? 'teal' : 'gray'} size="sm">
-                  {clip.hasVoice ? `a-cámara · ${clip.wordsPerSec?.toFixed(1) ?? '?'} wps` : 'B-roll'}
+                  {clip.hasVoice ? `on-camera · ${clip.wordsPerSec?.toFixed(1) ?? '?'} wps` : 'B-roll'}
                 </Badge>
               ) : clip.transcribeError ? (
                 <Badge color="red" size="sm" title={clip.transcribeError}>error</Badge>
               ) : (
-                <Badge color="yellow" size="sm">transcribiendo…</Badge>
+                <Badge color="yellow" size="sm">transcribing…</Badge>
               )}
             </Group>
           </Stack>
