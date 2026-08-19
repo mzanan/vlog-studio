@@ -14,6 +14,9 @@ export async function ingestClipFile(
   signal?: AbortSignal,
   skipTranscription = false
 ): Promise<string> {
+  const project = await prisma.project.findUnique({ where: { id: projectId }, select: { id: true } });
+  if (!project) throw new Error(`project ${projectId} no longer exists`);
+
   const targetClipsDir = clipsDir(projectId);
   const targetThumbsDir = thumbsDir(projectId);
   await mkdir(targetClipsDir, { recursive: true });
@@ -46,19 +49,27 @@ export async function ingestClipFile(
     return result;
   });
 
-  const clip = await prisma.clip.create({
-    data: {
-      projectId,
-      filename: originalName,
-      path: finalPath,
-      durationMs: probe.durationMs,
-      width: probe.width,
-      height: probe.height,
-      fps: probe.fps,
-      thumbnailPath: thumbPath,
-      transcribedAt: skipTranscription ? new Date() : null,
-    },
-  });
+  let clip;
+  try {
+    clip = await prisma.clip.create({
+      data: {
+        projectId,
+        filename: originalName,
+        path: finalPath,
+        durationMs: probe.durationMs,
+        width: probe.width,
+        height: probe.height,
+        fps: probe.fps,
+        thumbnailPath: thumbPath,
+        transcribedAt: skipTranscription ? new Date() : null,
+      },
+    });
+  } catch (err) {
+    await rm(finalPath, { force: true });
+    await rm(tempPath, { force: true });
+    await rm(thumbPath, { force: true });
+    throw err;
+  }
 
   if (!skipTranscription) enqueueTranscribe(clip.id);
   return clip.id;

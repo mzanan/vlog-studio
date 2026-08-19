@@ -46,15 +46,15 @@ export async function deleteProject(projectId: string): Promise<DeleteProjectRes
 
   if (await isProjectInActiveImport(projectId)) return 'busy';
 
-  await rm(projectDir(projectId), { recursive: true, force: true });
-  await rm(momentScoresPath(projectId), { force: true });
-
   try {
     await prisma.project.delete({ where: { id: projectId } });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') return 'not-found';
     throw err;
   }
+
+  await rm(projectDir(projectId), { recursive: true, force: true });
+  await rm(momentScoresPath(projectId), { force: true });
 
   return 'deleted';
 }
