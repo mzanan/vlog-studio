@@ -21,8 +21,14 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/projects/[
 export async function DELETE(_req: NextRequest, ctx: RouteContext<'/api/projects/[id]'>) {
   const { id } = await ctx.params;
 
-  const deleted = await deleteProject(id);
-  if (!deleted) return Response.json({ error: 'project not found' }, { status: 404 });
+  const result = await deleteProject(id);
+  if (result === 'not-found') return Response.json({ error: 'project not found' }, { status: 404 });
+  if (result === 'busy') {
+    return Response.json(
+      { error: 'this project is still being imported, wait for the chapter import to finish' },
+      { status: 409 },
+    );
+  }
 
   return new Response(null, { status: 204 });
 }

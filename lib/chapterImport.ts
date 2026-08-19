@@ -53,6 +53,13 @@ export async function loadImportProgress(): Promise<ChapterImportProgress | null
   return progress;
 }
 
+export async function isProjectInActiveImport(projectId: string): Promise<boolean> {
+  if (!importState.running) return false;
+  const progress = await loadImportProgress();
+  if (!progress || progress.status !== 'running') return false;
+  return progress.chapters.some((c) => c.projectId === projectId && c.status !== 'done');
+}
+
 export async function startChapterImport(maxChapters?: number): Promise<ChapterImportProgress> {
   if (importState.running) {
     const current = await loadImportProgress();

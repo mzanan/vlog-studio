@@ -4,6 +4,7 @@ import { Prisma } from './generated/prisma/client';
 import { Edl, isValidEdl } from './edl';
 import { Suggestion, isValidSuggestionList } from './suggestions';
 import { projectDir, momentScoresPath } from './paths';
+import { isProjectInActiveImport } from './chapterImport';
 
 export type ProjectEdlAndSuggestions = {
   edl: Edl | null;
@@ -37,9 +38,13 @@ export async function renameProject(projectId: string, name: string) {
   return prisma.project.update({ where: { id: projectId }, data: { name } });
 }
 
-export async function deleteProject(projectId: string): Promise<boolean> {
+export type DeleteProjectResult = 'deleted' | 'not-found' | 'busy';
+
+export async function deleteProject(projectId: string): Promise<DeleteProjectResult> {
   const project = await prisma.project.findUnique({ where: { id: projectId }, select: { id: true } });
-  if (!project) return false;
+  if (!project) return 'not-found';
+
+  if (await isProjectInActiveImport(projectId)) return 'busy';
 
   await rm(projectDir(projectId), { recursive: true, force: true });
   await rm(momentScoresPath(projectId), { force: true });
@@ -47,9 +52,9 @@ export async function deleteProject(projectId: string): Promise<boolean> {
   try {
     await prisma.project.delete({ where: { id: projectId } });
   } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') return false;
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') return 'not-found';
     throw err;
   }
 
-  return true;
+  return 'deleted';
 }
