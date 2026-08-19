@@ -49,26 +49,38 @@ export async function ingestClipFile(
     return result;
   });
 
-  let clip;
-  try {
-    clip = await prisma.clip.create({
-      data: {
-        projectId,
-        filename: originalName,
-        path: finalPath,
-        durationMs: probe.durationMs,
-        width: probe.width,
-        height: probe.height,
-        fps: probe.fps,
-        thumbnailPath: thumbPath,
-        transcribedAt: skipTranscription ? new Date() : null,
-      },
-    });
-  } catch (err) {
+  const cleanUpArtifacts = async () => {
     await rm(finalPath, { force: true });
     await rm(tempPath, { force: true });
     await rm(thumbPath, { force: true });
-    throw err;
+  };
+
+  const clip = await prisma
+    .$transaction(async (tx) => {
+      const stillThere = await tx.project.findUnique({ where: { id: projectId }, select: { id: true } });
+      if (!stillThere) return null;
+      return tx.clip.create({
+        data: {
+          projectId,
+          filename: originalName,
+          path: finalPath,
+          durationMs: probe.durationMs,
+          width: probe.width,
+          height: probe.height,
+          fps: probe.fps,
+          thumbnailPath: thumbPath,
+          transcribedAt: skipTranscription ? new Date() : null,
+        },
+      });
+    })
+    .catch(async (err) => {
+      await cleanUpArtifacts();
+      throw err;
+    });
+
+  if (!clip) {
+    await cleanUpArtifacts();
+    throw new Error(`project ${projectId} was deleted while the clip was being ingested`);
   }
 
   if (!skipTranscription) enqueueTranscribe(clip.id);

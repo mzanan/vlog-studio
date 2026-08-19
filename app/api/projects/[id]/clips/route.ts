@@ -25,7 +25,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
   if (!project) return Response.json({ error: 'project not found' }, { status: 404 });
 
   const rawName = req.headers.get('x-filename');
-  if (!rawName) return Response.json({ error: 'falta header x-filename' }, { status: 400 });
+  if (!rawName) return Response.json({ error: 'missing x-filename header' }, { status: 400 });
   const originalName = path.basename(decodeURIComponent(rawName));
 
   const targetClipsDir = clipsDir(projectId);
@@ -47,6 +47,12 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
     return Response.json({ error: `upload failed: ${message}` }, { status: 400 });
   }
 
+  const cleanUpArtifacts = async () => {
+    await rm(finalPath, { force: true });
+    await rm(tempPath, { force: true });
+    await rm(thumbPath, { force: true });
+  };
+
   const probe = await runHeavy(async () => {
     try {
       await normalizeClip(tempPath, finalPath, req.signal);
@@ -64,20 +70,41 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
       // thumbnail is non-fatal
     }
     return result;
+  }).catch(async (err) => {
+    await cleanUpArtifacts();
+    return { failed: err instanceof Error ? err.message : String(err) } as const;
   });
 
-  const clip = await prisma.clip.create({
-    data: {
-      projectId,
-      filename: originalName,
-      path: finalPath,
-      durationMs: probe.durationMs,
-      width: probe.width,
-      height: probe.height,
-      fps: probe.fps,
-      thumbnailPath: thumbPath,
-    },
-  });
+  if ('failed' in probe) {
+    return Response.json({ error: `could not process the file: ${probe.failed}` }, { status: 400 });
+  }
+
+  const clip = await prisma
+    .$transaction(async (tx) => {
+      const stillThere = await tx.project.findUnique({ where: { id: projectId }, select: { id: true } });
+      if (!stillThere) return null;
+      return tx.clip.create({
+        data: {
+          projectId,
+          filename: originalName,
+          path: finalPath,
+          durationMs: probe.durationMs,
+          width: probe.width,
+          height: probe.height,
+          fps: probe.fps,
+          thumbnailPath: thumbPath,
+        },
+      });
+    })
+    .catch(async (err) => {
+      await cleanUpArtifacts();
+      throw err;
+    });
+
+  if (!clip) {
+    await cleanUpArtifacts();
+    return Response.json({ error: 'the project was deleted while the clip was uploading' }, { status: 404 });
+  }
 
   await prisma.project.update({ where: { id: projectId }, data: { updatedAt: new Date() } });
   enqueueTranscribe(clip.id);
