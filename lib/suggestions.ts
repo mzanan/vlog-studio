@@ -122,6 +122,60 @@ export function applyPendingSuggestions(edl: Edl, suggestions: Suggestion[]): Ed
   return result;
 }
 
+export type BestMomentRange = { inMs: number; outMs: number };
+
+export type AutoApplyResult = {
+  edl: Edl;
+  pending: Suggestion[];
+  autoApplied: Suggestion[];
+};
+
+export function autoApplyBrollBestMoments(
+  edl: Edl,
+  newSuggestions: Suggestion[],
+  bestMomentByClip: Map<string, BestMomentRange>,
+): AutoApplyResult {
+  const segmentById = new Map(edl.segments.map((s) => [s.id, s]));
+  let result = edl;
+  const pending: Suggestion[] = [];
+  const autoApplied: Suggestion[] = [];
+  for (const s of newSuggestions) {
+    if (s.type !== 'trim-segment') {
+      pending.push(s);
+      continue;
+    }
+    const target = segmentById.get(s.data.segmentId);
+    const best = target ? bestMomentByClip.get(target.clipId) : undefined;
+    const isBrollBestMoment =
+      target?.kind === 'broll' && !!best && s.data.newInMs === best.inMs && s.data.newOutMs === best.outMs;
+    if (!isBrollBestMoment) {
+      pending.push(s);
+      continue;
+    }
+    try {
+      result = applySuggestion(result, s);
+      autoApplied.push({ ...s, status: 'accepted' });
+    } catch (err) {
+      if (err instanceof SuggestionApplyError) pending.push(s);
+      else throw err;
+    }
+  }
+  return { edl: result, pending, autoApplied };
+}
+
+export function dropDuplicateAcceptedTrims(older: Suggestion[], autoApplied: Suggestion[]): Suggestion[] {
+  return older.filter((s) => {
+    if (s.status !== 'accepted' || s.type !== 'trim-segment') return true;
+    return !autoApplied.some(
+      (a) =>
+        a.type === 'trim-segment' &&
+        a.data.segmentId === s.data.segmentId &&
+        a.data.newInMs === s.data.newInMs &&
+        a.data.newOutMs === s.data.newOutMs,
+    );
+  });
+}
+
 export function applySuggestion(edl: Edl, suggestion: Suggestion): Edl {
   switch (suggestion.type) {
     case 'trim-segment':

@@ -41,6 +41,7 @@ export function SuggestionsPanel({
   const videoPending = useMemo(() => pending.filter((s) => VIDEO_TYPES.includes(s.type)), [pending]);
   const musicPending = useMemo(() => pending.filter((s) => MUSIC_TYPES.includes(s.type)), [pending]);
   const voPending = useMemo(() => pending.filter((s) => VO_TYPES.includes(s.type)), [pending]);
+  const applied = useMemo(() => suggestions.filter((s) => s.status === 'accepted'), [suggestions]);
 
   const bulkAction = (ids: string[], action: 'accept' | 'reject') => {
     if (ids.length === 0) return;
@@ -115,6 +116,29 @@ export function SuggestionsPanel({
               busy={accept.isPending || reject.isPending || bulk.isPending}
             />
           </>
+        )}
+        {applied.length > 0 && (
+          <Stack gap={6}>
+            <Divider
+              labelPosition="left"
+              label={
+                <Group gap="xs">
+                  <Text size="xs" fw={600}>Applied</Text>
+                  <Badge size="xs" variant="light" color="teal">{applied.length}</Badge>
+                </Group>
+              }
+            />
+            <ScrollArea h={Math.min(300, applied.length * 60)} type="auto">
+              <Stack gap={4}>
+                {applied.map((s) => (
+                  <Stack key={s.id} gap={0}>
+                    <Text size="xs" c="dimmed">{TYPE_LABELS[s.type]}</Text>
+                    <Text size="sm" lineClamp={2}>{s.rationale}</Text>
+                  </Stack>
+                ))}
+              </Stack>
+            </ScrollArea>
+          </Stack>
         )}
       </Stack>
     </Drawer>
