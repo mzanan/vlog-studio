@@ -7,7 +7,9 @@
     "dev": "next dev -p 3070",
     "build": "next build",
     "start": "next start",
-    "test": "vitest run"
+    "test": "vitest run",
+    "score-moments": "tsx scripts/score-moments.ts",
+    "pick-moments": "tsx scripts/pick-moments.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
@@ -43,6 +45,7 @@
     "eslint-config-next": "^16.2.9",
     "eslint-config-prettier": "^10.1.8",
     "prisma": "^7.8.0",
+    "tsx": "^4.23.12",
     "typescript": "^5",
     "vitest": "^4.1.10"
   }

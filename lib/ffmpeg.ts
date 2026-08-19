@@ -6,7 +6,7 @@ const WAV_TIMEOUT_MS = 600_000;
 const NORMALIZE_TIMEOUT_MS = 1_800_000;
 const LOUDNESS_TIMEOUT_MS = 600_000;
 
-type RunOpts = { timeoutMs: number; signal?: AbortSignal };
+export type RunOpts = { timeoutMs: number; signal?: AbortSignal };
 
 export type ProbeResult = {
   durationMs: number;
@@ -124,7 +124,7 @@ function abortError(cmd: string, timeoutSignal: AbortSignal, timeoutMs: number):
     : new Error(`${cmd} aborted by request`);
 }
 
-function run(cmd: string, args: string[], opts: RunOpts): Promise<string> {
+export function run(cmd: string, args: string[], opts: RunOpts): Promise<string> {
   const { signal, timeoutSignal } = combinedSignal(opts);
   return new Promise((resolve, reject) => {
     const proc = spawn(cmd, args, { signal });

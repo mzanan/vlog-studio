@@ -105,7 +105,7 @@ function diffClip(
     const llmSeg = llm[0];
     if (sameRange(currentSeg, llmSeg)) return; // no change
     const isBroll = llmSeg.kind === 'broll';
-    const cutReason = llmSeg.kind === 'clip' ? llmSeg.cutReason : '';
+    const cutReason = llmSeg.kind === 'clip' ? llmSeg.cutReason : (llmSeg.cutReason ?? '');
     const rangeChanged = currentSeg.inMs !== llmSeg.inMs || currentSeg.outMs !== llmSeg.outMs;
     const prevSpeed = isBroll ? (currentSeg.kind === 'broll' ? clampBrollSpeed(currentSeg.speed) : 1) : undefined;
     const newSpeed = isBroll ? clampBrollSpeed(llmSeg.speed) : undefined;
