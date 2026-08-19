@@ -11,7 +11,7 @@ import {
 
 export async function generateEdlGemini(input: PlanInput): Promise<{ edl: Edl; llmEdl: LlmEdl }> {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('GEMINI_API_KEY no configurada');
+  if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
 
   const ai = new GoogleGenAI({ apiKey });
   const model = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
@@ -27,13 +27,13 @@ export async function generateEdlGemini(input: PlanInput): Promise<{ edl: Edl; l
   });
 
   const text = response.text;
-  if (!text) throw new Error('Gemini devolvió respuesta vacía');
+  if (!text) throw new Error('Gemini returned an empty response');
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
   } catch {
-    throw new Error(`Gemini devolvió JSON inválido: ${text.slice(0, 300)}`);
+    throw new Error(`Gemini returned invalid JSON: ${text.slice(0, 300)}`);
   }
 
   const llmEdl = parsed as LlmEdl;
@@ -42,7 +42,7 @@ export async function generateEdlGemini(input: PlanInput): Promise<{ edl: Edl; l
 
 export async function generateChaptersGemini(tags: VisionTag[]): Promise<{ chapters: Chapter[]; llmResult: LlmChaptersResult }> {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('GEMINI_API_KEY no configurada');
+  if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
 
   const ai = new GoogleGenAI({ apiKey });
   const model = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
@@ -58,13 +58,13 @@ export async function generateChaptersGemini(tags: VisionTag[]): Promise<{ chapt
   });
 
   const text = response.text;
-  if (!text) throw new Error('Gemini devolvió respuesta vacía');
+  if (!text) throw new Error('Gemini returned an empty response');
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
   } catch {
-    throw new Error(`Gemini devolvió JSON inválido: ${text.slice(0, 300)}`);
+    throw new Error(`Gemini returned invalid JSON: ${text.slice(0, 300)}`);
   }
 
   const llmResult = parsed as LlmChaptersResult;

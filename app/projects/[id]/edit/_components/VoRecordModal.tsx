@@ -75,7 +75,7 @@ export function VoRecordModal({
       tickRef.current = window.setInterval(() => setElapsedMs(Date.now() - startedAt), 200);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      setError(`No se pudo acceder al micrófono: ${msg}`);
+      setError(`Could not access the microphone: ${msg}`);
     }
   };
 
@@ -89,16 +89,16 @@ export function VoRecordModal({
 
   const upload = useApiMutation({
     mutationFn: async () => {
-      if (!blob) throw new Error('Sin grabación');
+      if (!blob) throw new Error('No recording');
       const form = new FormData();
       form.append('audio', blob, 'master.webm');
       const res = await fetch(`/api/projects/${projectId}/vo`, { method: 'POST', body: form });
       const body = await res.json();
-      if (!res.ok) throw new Error(body?.error ?? 'falló');
+      if (!res.ok) throw new Error(body?.error ?? 'failed');
       return body;
     },
     invalidateKeys: [['render-props', projectId]],
-    successMessage: 'VO grabado y guardado',
+    successMessage: 'VO recorded and saved',
     onSuccessExtra: () => {
       onChanged();
       onClose();
@@ -114,19 +114,19 @@ export function VoRecordModal({
   };
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Grabar voz en off" size="lg" closeOnClickOutside={state !== 'recording'}>
+    <Modal opened={opened} onClose={onClose} title="Record voiceover" size="lg" closeOnClickOutside={state !== 'recording'}>
       <Stack gap="md">
         <Group gap="xs">
-          <Badge variant="light">Una sola toma</Badge>
+          <Badge variant="light">Single take</Badge>
           <Text size="sm" c="dimmed">
-            Estimado: {formatMs(targetMs)} · {voiceover.cues.length} cue{voiceover.cues.length === 1 ? '' : 's'}
+            Estimated: {formatMs(targetMs)} · {voiceover.cues.length} cue{voiceover.cues.length === 1 ? '' : 's'}
           </Text>
         </Group>
 
         <Paper withBorder p="sm">
           <ScrollArea h={220}>
             <Text size="sm" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-              {voiceover.fullScript || <Text c="dimmed">El plan AI no tiene fullScript</Text>}
+              {voiceover.fullScript || <Text c="dimmed">The AI plan has no fullScript</Text>}
             </Text>
           </ScrollArea>
         </Paper>
@@ -135,28 +135,28 @@ export function VoRecordModal({
 
         <Group justify="space-between" align="center">
           <Text size="sm" c={state === 'recording' ? 'red' : 'dimmed'}>
-            {state === 'recording' && `● Grabando · ${formatMs(elapsedMs)}`}
-            {state === 'recorded' && `Listo · ${formatMs(elapsedMs)}`}
-            {state === 'idle' && 'Listo para grabar'}
+            {state === 'recording' && `● Recording · ${formatMs(elapsedMs)}`}
+            {state === 'recorded' && `Ready · ${formatMs(elapsedMs)}`}
+            {state === 'idle' && 'Ready to record'}
           </Text>
           <Group gap="xs">
             {state === 'idle' && (
               <Button leftSection={<IconMicrophone size={16} />} onClick={startRecording} color="red">
-                Empezar
+                Start
               </Button>
             )}
             {state === 'recording' && (
               <Button leftSection={<IconPlayerStop size={16} />} onClick={stopRecording} color="red">
-                Detener
+                Stop
               </Button>
             )}
             {state === 'recorded' && (
               <>
                 <Button variant="default" leftSection={<IconTrash size={16} />} onClick={reset}>
-                  Descartar
+                  Discard
                 </Button>
                 <Button onClick={() => upload.mutate()} loading={upload.isPending}>
-                  Guardar
+                  Save
                 </Button>
               </>
             )}

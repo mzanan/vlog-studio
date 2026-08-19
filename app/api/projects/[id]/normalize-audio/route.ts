@@ -14,7 +14,7 @@ export async function POST(
     where: { projectId },
     orderBy: { createdAt: 'asc' },
   });
-  if (clips.length === 0) return Response.json({ error: 'sin clips' }, { status: 404 });
+  if (clips.length === 0) return Response.json({ error: 'no clips' }, { status: 404 });
 
   const results: Array<{ clipId: string; filename: string; inputI?: number; gainDb?: number; error?: string }> = [];
 

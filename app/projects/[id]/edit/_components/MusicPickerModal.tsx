@@ -82,7 +82,7 @@ export function MusicPickerModal({
       });
       const res = await fetch(`/api/projects/${projectId}/music-search?${params}`);
       const body = await res.json();
-      if (!res.ok) throw new Error(body?.error ?? 'falló búsqueda');
+      if (!res.ok) throw new Error(body?.error ?? 'search failed');
       return body.tracks as JamendoTrack[];
     },
     enabled: opened && !!appliedQuery.trim() && durationMs > 0,
@@ -90,7 +90,7 @@ export function MusicPickerModal({
 
   const apply = useApiMutation({
     mutationFn: async () => {
-      if (!selected) throw new Error('elegí un track');
+      if (!selected) throw new Error('pick a track');
       const expectedPlanVersion = requirePlanVersion(qc, projectId);
       if (mode === 'edit' && section) {
         const res = await fetch(`/api/projects/${projectId}/plan/music/${section.id}`, {
@@ -99,7 +99,7 @@ export function MusicPickerModal({
           body: JSON.stringify({ track: selected, baseVolume, expectedPlanVersion }),
         });
         const body = await res.json();
-        if (!res.ok) throw new Error(body?.error ?? 'falló');
+        if (!res.ok) throw new Error(body?.error ?? 'failed');
         return body;
       }
       if (mode === 'new' && newSection) {
@@ -110,7 +110,7 @@ export function MusicPickerModal({
             startMs: newSection.startMs,
             endMs: newSection.endMs,
             query: query.trim() || appliedQuery.trim() || mood || 'music',
-            mood: mood.trim() || appliedQuery.trim() || 'música',
+            mood: mood.trim() || appliedQuery.trim() || 'music',
             energy,
             baseVolume,
             track: selected,
@@ -118,15 +118,15 @@ export function MusicPickerModal({
           }),
         });
         const body = await res.json();
-        if (!res.ok) throw new Error(body?.error ?? 'falló');
+        if (!res.ok) throw new Error(body?.error ?? 'failed');
         return body;
       }
-      throw new Error('estado inválido del modal');
+      throw new Error('invalid modal state');
     },
     invalidateKeys: [['render-props', projectId]],
     errorInvalidateKeys: [['edl', projectId]],
     onSuccessCache: (result) => syncPlanCache(qc, projectId, result),
-    successMessage: mode === 'new' ? 'Música insertada' : 'Música aplicada',
+    successMessage: mode === 'new' ? 'Music inserted' : 'Music applied',
     onSuccessExtra: () => {
       onChanged();
       onClose();
@@ -139,7 +139,7 @@ export function MusicPickerModal({
 
   if (mode === 'none') return null;
 
-  const headerTitle = mode === 'new' ? 'Insertar música nueva' : 'Elegir música';
+  const headerTitle = mode === 'new' ? 'Insert new music' : 'Pick music';
 
   return (
     <Modal opened={opened} onClose={onClose} title={headerTitle} size="lg">
@@ -150,7 +150,7 @@ export function MusicPickerModal({
               {(newSection.startMs / 1000).toFixed(1)}s → {(newSection.endMs / 1000).toFixed(1)}s
             </Badge>
             <Text size="xs" c="dimmed">
-              ({Math.round((newSection.endMs - newSection.startMs) / 1000)}s de música)
+              ({Math.round((newSection.endMs - newSection.startMs) / 1000)}s of music)
             </Text>
           </Group>
         )}
@@ -159,12 +159,12 @@ export function MusicPickerModal({
           <Group grow>
             <TextInput
               label="Mood"
-              placeholder="ej: contemplativo, energético, melancólico"
+              placeholder="e.g.: contemplative, energetic, melancholic"
               value={mood}
               onChange={(e) => setMood(e.currentTarget.value)}
             />
             <Stack gap={2}>
-              <Text size="sm" fw={500}>Energía</Text>
+              <Text size="sm" fw={500}>Energy</Text>
               <SegmentedControl
                 value={energy}
                 onChange={(v) => setEnergy(v as Energy)}
@@ -187,8 +187,8 @@ export function MusicPickerModal({
 
         <Group gap="xs" align="flex-end">
           <TextInput
-            label="Buscar en Jamendo (tags en inglés)"
-            placeholder="ej: calm acoustic travel"
+            label="Search on Jamendo (tags in English)"
+            placeholder="e.g.: calm acoustic travel"
             value={query}
             onChange={(e) => setQuery(e.currentTarget.value)}
             onKeyDown={(e) => {
@@ -204,7 +204,7 @@ export function MusicPickerModal({
             onClick={handleSearch}
             disabled={!query.trim()}
           >
-            Buscar
+            Search
           </Button>
         </Group>
 
@@ -213,10 +213,10 @@ export function MusicPickerModal({
           <Text c="red" size="sm">{(search.error as Error).message}</Text>
         )}
         {appliedQuery && search.data && search.data.length === 0 && !search.isLoading && (
-          <Text c="dimmed" size="sm">Sin resultados para &quot;{appliedQuery}&quot;. Probá con otros tags.</Text>
+          <Text c="dimmed" size="sm">No results for &quot;{appliedQuery}&quot;. Try other tags.</Text>
         )}
         {!appliedQuery && (
-          <Text c="dimmed" size="sm">Escribí tags y apretá Buscar para ver alternativas.</Text>
+          <Text c="dimmed" size="sm">Type tags and press Search to see alternatives.</Text>
         )}
 
         <Stack gap="xs">
@@ -239,7 +239,7 @@ export function MusicPickerModal({
                   <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
                     <Text size="sm" fw={600} truncate>{t.title}</Text>
                     <Text size="xs" c="dimmed" truncate>
-                      {t.artist} · {Math.round(t.durationSec)}s · <Anchor size="xs" href={t.licenseUrl} target="_blank" onClick={(e) => e.stopPropagation()}>licencia</Anchor>
+                      {t.artist} · {Math.round(t.durationSec)}s · <Anchor size="xs" href={t.licenseUrl} target="_blank" onClick={(e) => e.stopPropagation()}>license</Anchor>
                     </Text>
                   </Stack>
                   <Button
@@ -269,17 +269,17 @@ export function MusicPickerModal({
         </Stack>
 
         <Stack gap="xs">
-          <Text size="sm">Volumen base: {(baseVolume * 100).toFixed(0)}%</Text>
+          <Text size="sm">Base volume: {(baseVolume * 100).toFixed(0)}%</Text>
           <Slider value={baseVolume} onChange={setBaseVolume} min={0} max={0.6} step={0.01} />
           <Text size="xs" c="dimmed">
-            El render hace ducking automático sobre VO/diálogo; este es el volumen cuando no hay voz.
+            The render applies automatic ducking over VO/dialogue; this is the volume when there is no voice.
           </Text>
         </Stack>
 
         <Group justify="flex-end" gap="xs">
-          <Button variant="default" onClick={onClose}>Cancelar</Button>
+          <Button variant="default" onClick={onClose}>Cancel</Button>
           <Button onClick={() => apply.mutate()} loading={apply.isPending} disabled={!selected}>
-            {mode === 'new' ? 'Insertar' : 'Aplicar'}
+            {mode === 'new' ? 'Insert' : 'Apply'}
           </Button>
         </Group>
       </Stack>

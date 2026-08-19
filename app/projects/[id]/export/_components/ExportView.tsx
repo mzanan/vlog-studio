@@ -20,7 +20,7 @@ export function ExportView({ projectId }: { projectId: string }) {
     queryKey: ['exports', projectId],
     queryFn: async () => {
       const res = await fetch(`/api/projects/${projectId}/export`);
-      if (!res.ok) throw new Error('falló');
+      if (!res.ok) throw new Error('failed');
       return (await res.json()) as { exports: ExportFile[] };
     },
   });
@@ -29,15 +29,15 @@ export function ExportView({ projectId }: { projectId: string }) {
     mutationFn: async () => {
       const res = await fetch(`/api/projects/${projectId}/export`, { method: 'POST' });
       const body = await res.json();
-      if (!res.ok) throw new Error(body?.error ?? 'falló');
+      if (!res.ok) throw new Error(body?.error ?? 'failed');
       return body as { filename: string; durationFrames: number; warnings: string[] };
     },
     onMutate: () => {
       notifications.show({
         id: `render-${projectId}`,
         loading: true,
-        title: 'Renderizando',
-        message: 'Bundle + render. Tarda varios minutos. No cierres el dev server.',
+        title: 'Rendering',
+        message: 'Bundle + render. Takes several minutes. Do not close the dev server.',
         autoClose: false,
         withCloseButton: false,
       });
@@ -57,14 +57,14 @@ export function ExportView({ projectId }: { projectId: string }) {
     <Stack gap="md">
       <Group>
         <Button leftSection={<IconVideo size={16} />} onClick={() => render.mutate()} loading={render.isPending}>
-          Renderizar vlog
+          Render vlog
         </Button>
       </Group>
 
       {isLoading ? (
         <Loader />
       ) : !data || data.exports.length === 0 ? (
-        <Text c="dimmed">Sin renders aún.</Text>
+        <Text c="dimmed">No renders yet.</Text>
       ) : (
         <Stack gap="sm">
           {data.exports.map((file) => (
@@ -79,7 +79,7 @@ export function ExportView({ projectId }: { projectId: string }) {
                 </Stack>
                 <Anchor href={`/api/projects/${projectId}/export/${file.filename}`} download>
                   <Button variant="default" size="xs" leftSection={<IconDownload size={14} />}>
-                    Descargar
+                    Download
                   </Button>
                 </Anchor>
               </Group>

@@ -28,10 +28,10 @@ async function loadPlanInput(projectId: string, cutPreset: CutPreset) {
 
   const untranscribed = project.clips.filter((c) => !c.transcribedAt);
   if (untranscribed.length > 0) {
-    return { error: `Hay ${untranscribed.length} clips sin transcribir`, status: 409 as const };
+    return { error: `${untranscribed.length} clips have not been transcribed yet`, status: 409 as const };
   }
   if (project.clips.length === 0) {
-    return { error: 'El proyecto no tiene clips', status: 409 as const };
+    return { error: 'The project has no clips', status: 409 as const };
   }
 
   let visionTags: Awaited<ReturnType<typeof loadVisionTags>> = [];
@@ -143,7 +143,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
     // sin body → flow automático
   }
   const expectedPlanVersion = parseExpectedPlanVersion(body);
-  if (expectedPlanVersion === null) return Response.json({ error: 'falta expectedPlanVersion' }, { status: 400 });
+  if (expectedPlanVersion === null) return Response.json({ error: 'missing expectedPlanVersion' }, { status: 400 });
   const cutPreset: CutPreset = isValidCutPreset(body.cutPreset) ? body.cutPreset : DEFAULT_CUT_PRESET;
 
   const loaded = await loadPlanInput(projectId, cutPreset);
@@ -161,7 +161,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
       llmEdlForLog = JSON.parse(body.rawJson) as LlmEdl;
       resolvedLlmEdl = resolveLlmEdl(llmEdlForLog, loaded.input);
       if (!isValidEdl(resolvedLlmEdl)) {
-        errorForLog = 'JSON manual no produjo un EDL válido';
+        errorForLog = 'Manual JSON did not produce a valid EDL';
         return Response.json({ error: errorForLog }, { status: 400 });
       }
     } else {
@@ -236,9 +236,9 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
 export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/projects/[id]/plan'>) {
   const { id: projectId } = await ctx.params;
   const body = await req.json();
-  if (!isValidEdl(body?.edl)) return Response.json({ error: 'EDL inválido' }, { status: 400 });
+  if (!isValidEdl(body?.edl)) return Response.json({ error: 'Invalid EDL' }, { status: 400 });
   const expectedPlanVersion = parseExpectedPlanVersion(body);
-  if (expectedPlanVersion === null) return Response.json({ error: 'falta expectedPlanVersion' }, { status: 400 });
+  if (expectedPlanVersion === null) return Response.json({ error: 'missing expectedPlanVersion' }, { status: 400 });
   const edl = body.edl as Edl;
   const needsMusicPopulate = edl.music.sections.some((s) => s.query && !s.trackId);
   if (needsMusicPopulate) await populateMusicSections(edl);

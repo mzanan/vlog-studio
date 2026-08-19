@@ -5,7 +5,7 @@ type PlanCacheResult = { planVersion?: number; edl?: PlanResponse['edl']; sugges
 
 export function requirePlanVersion(qc: QueryClient, projectId: string): number {
   const planVersion = qc.getQueryData<PlanResponse>(['edl', projectId])?.planVersion;
-  if (typeof planVersion !== 'number') throw new Error('estado del proyecto no cargado todavía, esperá y reintentá');
+  if (typeof planVersion !== 'number') throw new Error('project state not loaded yet, wait and retry');
   return planVersion;
 }
 

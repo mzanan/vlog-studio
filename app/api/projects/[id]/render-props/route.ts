@@ -15,7 +15,7 @@ export async function GET(req: NextRequest, ctx: RouteContext<'/api/projects/[id
   if (!plan) return Response.json({ error: 'project not found' }, { status: 404 });
 
   const clips = await prisma.clip.findMany({ where: { projectId }, orderBy: { createdAt: 'asc' } });
-  if (clips.length === 0) return Response.json({ error: 'sin clips' }, { status: 409 });
+  if (clips.length === 0) return Response.json({ error: 'no clips' }, { status: 409 });
 
   const excludeRaw = new URL(req.url).searchParams.get('exclude') ?? '';
   const excluded = new Set(excludeRaw.split(',').filter(Boolean));

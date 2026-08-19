@@ -27,18 +27,18 @@ export function IngestDropzone({ projectId }: { projectId: string }) {
     mutationFn: async () => {
       const res = await fetch(`/api/projects/${projectId}/clips/import-inbox`, { method: 'POST' });
       const body = await res.json();
-      if (!res.ok) throw new Error(body?.error ?? 'falló');
+      if (!res.ok) throw new Error(body?.error ?? 'failed');
       return body as { imported: number; failed: { file: string; error: string }[] };
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['clips', projectId] });
       router.refresh();
       if (data.imported === 0) {
-        notifications.show({ color: 'yellow', message: 'No había clips nuevos en data/inbox/' });
+        notifications.show({ color: 'yellow', message: 'No new clips in data/inbox/' });
       } else {
         notifications.show({
           color: 'teal',
-          message: `${data.imported} clips importados${data.failed.length ? ` (${data.failed.length} fallaron)` : ''}`,
+          message: `${data.imported} clips imported${data.failed.length ? ` (${data.failed.length} failed)` : ''}`,
         });
       }
     },
@@ -50,7 +50,7 @@ export function IngestDropzone({ projectId }: { projectId: string }) {
       <Dropzone
         openRef={openRef}
         onDrop={(files) => uploadFiles(files)}
-        onReject={() => notifications.show({ color: 'red', message: 'Archivo rechazado (tipo no soportado)' })}
+        onReject={() => notifications.show({ color: 'red', message: 'File rejected (unsupported type)' })}
         loading={isUploading}
         accept={VIDEO_MIME}
         multiple
@@ -60,15 +60,15 @@ export function IngestDropzone({ projectId }: { projectId: string }) {
           <Dropzone.Reject><IconX size={48} /></Dropzone.Reject>
           <Dropzone.Idle><IconVideo size={48} /></Dropzone.Idle>
           <Stack gap={4}>
-            <Text size="lg">Arrastrá clips acá o hacé click</Text>
-            <Text size="sm" c="dimmed">MP4, MOV, MKV, WebM · se suben de a uno</Text>
+            <Text size="lg">Drag clips here or click</Text>
+            <Text size="sm" c="dimmed">MP4, MOV, MKV, WebM: uploaded one at a time</Text>
           </Stack>
         </Group>
       </Dropzone>
 
       {isUploading && queue.length > 0 && (
         <Stack gap={4}>
-          <Text size="sm" c="dimmed">Subiendo {doneCount}/{queue.length}…</Text>
+          <Text size="sm" c="dimmed">Uploading {doneCount}/{queue.length}…</Text>
           <Progress value={(doneCount / queue.length) * 100} size="sm" />
         </Stack>
       )}
@@ -80,7 +80,7 @@ export function IngestDropzone({ projectId }: { projectId: string }) {
           onClick={() => importInbox.mutate()}
           loading={importInbox.isPending}
         >
-          Importar inbox (data/inbox/)
+          Import inbox (data/inbox/)
         </Button>
       </Group>
     </Stack>

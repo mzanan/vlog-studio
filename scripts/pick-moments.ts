@@ -32,7 +32,7 @@ async function main() {
       continue;
     }
     if (score.windows.length === 0) {
-      console.error(`[${i + 1}/${scores.length}] ${score.clipId}: sin ventanas candidatas, skipping`);
+      console.error(`[${i + 1}/${scores.length}] ${score.clipId}: no candidate windows, skipping`);
       updated.push(score);
       continue;
     }

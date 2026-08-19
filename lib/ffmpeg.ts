@@ -179,11 +179,11 @@ export async function analyzeLoudness(
   // El bloque JSON está al final del stderr. Buscamos el último objeto JSON que contenga "input_i".
   const matches = stderr.match(/\{[^{}]*"input_i"[^{}]*\}/g);
   if (!matches || matches.length === 0) {
-    throw new Error('loudnorm: no se encontró JSON de salida');
+    throw new Error('loudnorm: no output JSON found');
   }
   const parsed = JSON.parse(matches[matches.length - 1]) as { input_i?: string };
   const inputI = parseFloat(parsed.input_i ?? 'NaN');
-  if (!Number.isFinite(inputI)) throw new Error('loudnorm: input_i inválido');
+  if (!Number.isFinite(inputI)) throw new Error('loudnorm: invalid input_i');
   // Si el clip es esencialmente silencio (input_i muy negativo, ej -70 LUFS), el gain
   // sería enorme. Limitamos para no boostear ruido de fondo a niveles dolorosos.
   const rawGain = targetLufs - inputI;

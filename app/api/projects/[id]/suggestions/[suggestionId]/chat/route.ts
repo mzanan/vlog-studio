@@ -15,20 +15,20 @@ export async function POST(
   const { id: projectId, suggestionId } = await ctx.params;
   const body = (await req.json()) as Partial<ChatBody>;
   if (!body.message || typeof body.message !== 'string' || body.message.trim() === '') {
-    return Response.json({ error: 'message vacío' }, { status: 400 });
+    return Response.json({ error: 'empty message' }, { status: 400 });
   }
   const expectedPlanVersion = parseExpectedPlanVersion(body);
-  if (expectedPlanVersion === null) return Response.json({ error: 'falta expectedPlanVersion' }, { status: 400 });
+  if (expectedPlanVersion === null) return Response.json({ error: 'missing expectedPlanVersion' }, { status: 400 });
   const userMessage = body.message.trim();
 
   const plan = await loadProjectPlan(projectId);
-  if (!plan?.edl) return Response.json({ error: 'project sin edl' }, { status: 409 });
+  if (!plan?.edl) return Response.json({ error: 'project without edl' }, { status: 409 });
 
   const idx = plan.suggestions.findIndex((s) => s.id === suggestionId);
   if (idx < 0) return Response.json({ error: 'suggestion not found' }, { status: 404 });
   const target = plan.suggestions[idx];
   if (target.status !== 'pending') {
-    return Response.json({ error: `suggestion ya está ${target.status}` }, { status: 409 });
+    return Response.json({ error: `suggestion is already ${target.status}` }, { status: 409 });
   }
 
   // Cargar contexto de clips relevantes (solo los que la sugerencia toca).
@@ -90,7 +90,7 @@ export async function POST(
   let rationale = target.rationale;
   if (result.updatedPayload) {
     mergedData = mergeUpdatedPayload(target.type, mergedData, result.updatedPayload);
-    rationale = `${rationale} · refinado vía chat`;
+    rationale = `${rationale}, refined via chat`;
   }
 
   const updated: Suggestion = {

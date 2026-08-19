@@ -54,7 +54,7 @@ function fallbackPick(windows: MomentWindow[]): MomentPickResult {
 function parsePickJson(text: string): RawPick {
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
-  if (start === -1 || end === -1 || end < start) throw new Error('respuesta sin objeto JSON');
+  if (start === -1 || end === -1 || end < start) throw new Error('response has no JSON object');
   return JSON.parse(text.slice(start, end + 1)) as RawPick;
 }
 
@@ -77,14 +77,14 @@ async function requestOllama(images: string[], signal: AbortSignal): Promise<str
       stream: false,
     }),
   });
-  if (!res.ok) throw new Error(`ollama respondió ${res.status}`);
+  if (!res.ok) throw new Error(`ollama responded ${res.status}`);
   const body = (await res.json()) as { message?: { content?: string } };
   return body.message?.content ?? '';
 }
 
 async function requestOpenRouter(images: string[], signal: AbortSignal): Promise<string> {
   const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) throw new Error('falta OPENROUTER_API_KEY');
+  if (!apiKey) throw new Error('missing OPENROUTER_API_KEY');
   const res = await fetch(OPENROUTER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
@@ -110,8 +110,8 @@ async function requestOpenRouter(images: string[], signal: AbortSignal): Promise
   const body = (await res.json().catch(() => null)) as
     | { choices?: Array<{ message?: { content?: string } }>; error?: { message?: string } }
     | null;
-  if (!res.ok) throw new Error(`openrouter respondió ${res.status}: ${body?.error?.message ?? 'sin detalle'}`);
-  if (body?.error) throw new Error(`openrouter: ${body.error.message ?? 'error sin mensaje'}`);
+  if (!res.ok) throw new Error(`openrouter responded ${res.status}: ${body?.error?.message ?? 'no detail'}`);
+  if (body?.error) throw new Error(`openrouter: ${body.error.message ?? 'error with no message'}`);
   return body?.choices?.[0]?.message?.content ?? '';
 }
 
@@ -128,7 +128,7 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
     const timer = setTimeout(resolve, ms);
     signal?.addEventListener('abort', () => {
       clearTimeout(timer);
-      reject(new Error('abortado'));
+      reject(new Error('aborted'));
     }, { once: true });
   });
 }
@@ -139,10 +139,10 @@ export async function pickBestWindow(
   signal?: AbortSignal,
 ): Promise<MomentPickResult> {
   if (windows.length === 0) throw new Error('pickBestWindow: no candidate windows');
-  if (windows.length === 1) return { windowIndex: 0, reason: 'única ventana candidata' };
+  if (windows.length === 1) return { windowIndex: 0, reason: 'single candidate window' };
 
   const attempts = currentVisionPickProvider() === 'openrouter' ? REMOTE_ATTEMPTS : 1;
-  let lastError = 'sin intentos';
+  let lastError = 'no attempts';
 
   try {
     const images = await Promise.all(
@@ -154,7 +154,7 @@ export async function pickBestWindow(
         const content = await requestPick(images, signal);
         const parsed = parsePickJson(content);
         if (typeof parsed.bestIndex !== 'number' || !windows[parsed.bestIndex]) {
-          throw new Error(`bestIndex fuera de rango: ${String(parsed.bestIndex)}`);
+          throw new Error(`bestIndex out of range: ${String(parsed.bestIndex)}`);
         }
         return {
           windowIndex: parsed.bestIndex,
@@ -168,7 +168,7 @@ export async function pickBestWindow(
     throw new Error(lastError);
   } catch (err) {
     console.error(
-      `pickBestWindow: fallback a heurística, ${currentVisionPickProvider()} falló: ${(err as Error).message}`,
+      `pickBestWindow: falling back to heuristic, ${currentVisionPickProvider()} failed: ${(err as Error).message}`,
     );
     return fallbackPick(windows);
   }

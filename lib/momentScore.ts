@@ -237,11 +237,11 @@ export function bestWindowFor(score: ClipMomentScore): MomentWindow | undefined 
 }
 
 const SIGNAL_LABELS: Record<keyof SignalScores, string> = {
-  exposure: 'exposición',
-  sharpness: 'nitidez',
-  motion: 'movimiento',
+  exposure: 'exposure',
+  sharpness: 'sharpness',
+  motion: 'motion',
   audioEnergy: 'audio',
-  cutPenalty: 'sin cortes',
+  cutPenalty: 'no cuts',
 };
 
 export function describeMomentSignals(signals: SignalScores): string {
@@ -249,5 +249,5 @@ export function describeMomentSignals(signals: SignalScores): string {
   const top = (Object.keys(positive) as Array<keyof SignalScores>).reduce((a, b) =>
     positive[b] > positive[a] ? b : a,
   );
-  return `criterio automático (ffmpeg): destaca en ${SIGNAL_LABELS[top]}`;
+  return `automatic criterion (ffmpeg): stands out in ${SIGNAL_LABELS[top]}`;
 }

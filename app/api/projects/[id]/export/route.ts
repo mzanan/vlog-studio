@@ -42,7 +42,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
     include: { clips: true },
   });
   if (!project) return Response.json({ error: 'project not found' }, { status: 404 });
-  if (!isValidEdl(project.edl)) return Response.json({ error: 'project sin EDL' }, { status: 409 });
+  if (!isValidEdl(project.edl)) return Response.json({ error: 'project without EDL' }, { status: 409 });
 
   try {
     const props = await buildVlogProps({
@@ -68,17 +68,17 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
       if (!s.trackId) {
         const startSec = Math.round(s.startMs / 1000);
         const endSec = Math.round(s.endMs / 1000);
-        warnings.push(`Música sin resolver en "${s.mood}" (${startSec}s-${endSec}s): esa sección queda en silencio.`);
+        warnings.push(`Unresolved music in "${s.mood}" (${startSec}s-${endSec}s): that section stays silent.`);
       }
     }
     if (project.edl.voiceover.cues.length > 0) {
       if (!props.voiceover.audioUrl) {
-        warnings.push(`Hay ${project.edl.voiceover.cues.length} cues de voiceover planeados pero no se grabó audio: el export queda sin narración.`);
+        warnings.push(`There are ${project.edl.voiceover.cues.length} planned voiceover cues but no audio was recorded: the export has no narration.`);
       } else if (
         project.edl.voiceover.recordedFingerprint &&
         project.edl.voiceover.recordedFingerprint !== voiceoverFingerprint(project.edl.voiceover)
       ) {
-        warnings.push('El guión de voiceover cambió después de la última grabación: la narración puede no cubrir las cues actuales, considerá re-grabar.');
+        warnings.push('The voiceover script changed after the last recording: the narration may not cover the current cues, consider re-recording.');
       }
     }
 

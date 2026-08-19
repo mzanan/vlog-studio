@@ -71,9 +71,9 @@ export function resolveLlmChapters(llm: LlmChaptersResult, tags: VisionTag[]): C
     .sort((a, b) => (a.clip < b.clip ? -1 : a.clip > b.clip ? 1 : 0));
   if (missing.length > 0) {
     chapters.push({
-      title: 'Sin agrupar',
+      title: 'Ungrouped',
       clips: missing,
-      reason: '(clips omitidos por la AI, reinsertados acá para que decidas)',
+      reason: '(clips omitted by the AI, reinserted here for you to decide)',
     });
   }
 
