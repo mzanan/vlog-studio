@@ -33,3 +33,11 @@ Tres caminos:
 1. **Drag & drop** en `/projects/<id>/ingest`: arrastrás clips al dropzone.
 2. **Inbox**: copiás archivos (AirDrop, manual, lo que sea) a `data/inbox/`, después click **"Importar inbox"**. Los procesados se mueven a `data/inbox/imported/`.
 3. **Capítulos**: desde el home, el LLM agrupa los clips taggeados (vision tags en `data/vision-tags/`) en capítulos y guarda el resultado en `data/chapters/grouping.json`; "Import chapters" crea un Project por capítulo y los ingesta en background (sin whisper, son b-roll en su mayoría) con progreso en vivo que sobrevive al refresh.
+
+## Best moment por clip b-roll
+
+El rango `inMs/outMs` de cada clip b-roll lo decide el server, nunca el LLM:
+
+1. `npm run score-moments -- <projectId>`: ffmpeg puntúa ventanas candidatas de 2-6s por clip (exposición, nitidez, movimiento, energía de audio, penalización por cortes de escena) y guarda el top-3 en `data/moment-scores/<projectId>.jsonl`. Clips menores a 2s se omiten.
+2. `npm run pick-moments -- <projectId>`: un modelo de visión elige la mejor ventana por contenido y guarda `pick` + razón en el mismo JSONL. Provider por env: `VISION_PICK_PROVIDER` (`ollama` default, `openrouter`) y `VISION_PICK_MODEL`; ante cualquier fallo cae a la ventana de mayor score heurístico.
+3. `/plan` usa esa ventana como `bestMoment`: la propone como sugerencia `trim-segment` con la razón como rationale. Sin moment-scores, el clip queda entero (comportamiento previo).
