@@ -41,3 +41,13 @@ El rango `inMs/outMs` de cada clip b-roll lo decide el server, nunca el LLM:
 1. `npm run score-moments -- <projectId>`: ffmpeg puntúa ventanas candidatas de 2-6s por clip (exposición, nitidez, movimiento, energía de audio, penalización por cortes de escena) y guarda el top-3 en `data/moment-scores/<projectId>.jsonl`. Clips menores a 2s se omiten.
 2. `npm run pick-moments -- <projectId>`: un modelo de visión elige la mejor ventana por contenido y guarda `pick` + razón en el mismo JSONL. Provider por env: `VISION_PICK_PROVIDER` (`ollama` default, `openrouter`) y `VISION_PICK_MODEL`; ante cualquier fallo cae a la ventana de mayor score heurístico.
 3. `/plan` usa esa ventana como `bestMoment`: la propone como sugerencia `trim-segment` con la razón como rationale. Sin moment-scores, el clip queda entero (comportamiento previo).
+
+Env vars (todas opcionales, defaults actuales):
+
+- `OLLAMA_URL`: endpoint de Ollama para vision picks (default `http://localhost:11434/api/chat`).
+- `VISION_PICK_PROVIDER`: `ollama` (default) u `openrouter`.
+- `VISION_PICK_MODEL`: modelo de visión (default `qwen2.5vl:7b` en ollama, `dots-studio/dots-3-note-preview:free` en openrouter).
+- `VISION_PICK_TIMEOUT_MS`: timeout por request (default `120000`).
+- `VISION_PICK_ATTEMPTS`: intentos contra el provider remoto (default `3`).
+- `VISION_PICK_BACKOFF_MS`: backoff base entre reintentos (default `4000`).
+- `MOMENT_SCORE_TOP_K`: ventanas candidatas guardadas por clip (default `3`).

@@ -233,7 +233,7 @@ function renderVisionTag(tag: ClipVisionTag | undefined): string {
 }
 
 function renderBestMoment(bestMoment: ClipBestMoment | undefined): string {
-  if (!bestMoment) return '(sin dato, el rango queda en manos del server, no decidas vos)';
+  if (!bestMoment) return '(sin dato, emití inMs=0 y outMs=durationMs igual, el server decide el rango)';
   return `${bestMoment.inMs}-${bestMoment.outMs}ms, razón: ${bestMoment.reason}`;
 }
 
