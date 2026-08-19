@@ -229,11 +229,15 @@ export function momentScoreForClip(clipId: string, scores: ClipMomentScore[]): C
   return scores.find((s) => s.clipId === clipId);
 }
 
+export function bestOf(windows: MomentWindow[]): MomentWindow {
+  return windows.reduce((best, w) => (w.score > best.score ? w : best));
+}
+
 export function bestWindowFor(score: ClipMomentScore): MomentWindow | undefined {
   if (score.windows.length === 0) return undefined;
   const pickedIndex = score.pick?.windowIndex;
   if (typeof pickedIndex === 'number' && score.windows[pickedIndex]) return score.windows[pickedIndex];
-  return score.windows.reduce((best, w) => (w.score > best.score ? w : best));
+  return bestOf(score.windows);
 }
 
 const SIGNAL_LABELS: Record<keyof SignalScores, string> = {

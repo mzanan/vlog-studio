@@ -1,7 +1,9 @@
 import { prisma } from '@/lib/db';
-import { scoreClip, writeMomentScores, ClipMomentScore } from '@/lib/momentScore';
+import { scoreClip, writeMomentScores, bestOf, ClipMomentScore } from '@/lib/momentScore';
+import { momentScoresPath } from '@/lib/paths';
+import { envInt } from '@/lib/env';
 
-const TOP_K = 3;
+const TOP_K = envInt('MOMENT_SCORE_TOP_K', 3);
 
 async function main() {
   const projectId = process.argv[2];
@@ -28,7 +30,7 @@ async function main() {
         continue;
       }
       scores.push(result);
-      const best = result.windows.reduce((a, b) => (b.score > a.score ? b : a));
+      const best = bestOf(result.windows);
       console.log(
         `[${i + 1}/${clips.length}] ${clip.filename}: ${result.windows.length} windows, best ${best.startMs}-${best.endMs}ms score=${best.score.toFixed(3)}`,
       );
@@ -38,7 +40,7 @@ async function main() {
   }
 
   await writeMomentScores(projectId, scores);
-  console.log(`done: ${scores.length}/${clips.length} clips scored, output data/moment-scores/${projectId}.jsonl`);
+  console.log(`done: ${scores.length}/${clips.length} clips scored, output ${momentScoresPath(projectId)}`);
 }
 
 main()

@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import { loadMomentScores, writeMomentScores, ClipMomentScore } from '@/lib/momentScore';
 import { pickBestWindow, currentVisionPickProvider, currentVisionPickModel } from '@/lib/visionPick';
+import { momentScoresPath } from '@/lib/paths';
 
 async function main() {
   const projectId = process.argv[2];
@@ -47,7 +48,7 @@ async function main() {
   }
 
   await writeMomentScores(projectId, updated);
-  console.log(`done: ${updated.length} clips, output data/moment-scores/${projectId}.jsonl`);
+  console.log(`done: ${updated.length} clips, output ${momentScoresPath(projectId)}`);
 }
 
 main()

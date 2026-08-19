@@ -3,15 +3,17 @@ import { readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { generateThumbnail } from './ffmpeg';
-import { MomentWindow, describeMomentSignals } from './momentScore';
+import { MomentWindow, bestOf, describeMomentSignals } from './momentScore';
+import { envInt } from './env';
 
-const OLLAMA_URL = 'http://localhost:11434/api/chat';
+const OLLAMA_URL = process.env.OLLAMA_URL ?? 'http://localhost:11434/api/chat';
 const OLLAMA_MODEL = 'qwen2.5vl:7b';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const OPENROUTER_MODEL = 'nvidia/nemotron-nano-12b-v2-vl:free';
-const REQUEST_TIMEOUT_MS = 120_000;
-const REMOTE_ATTEMPTS = 3;
-const RETRY_BACKOFF_MS = 4_000;
+const OPENROUTER_MODEL = 'dots-studio/dots-3-note-preview:free';
+
+const REQUEST_TIMEOUT_MS = envInt('VISION_PICK_TIMEOUT_MS', 120_000);
+const REMOTE_ATTEMPTS = envInt('VISION_PICK_ATTEMPTS', 3);
+const RETRY_BACKOFF_MS = envInt('VISION_PICK_BACKOFF_MS', 4_000);
 
 const SYSTEM_PROMPT = `Sos un editor de video eligiendo el mejor momento dentro de un clip b-roll para un vlog.
 Recibís varios frames candidatos, cada uno el punto medio de una ventana de 2-6s del mismo clip.
@@ -47,7 +49,7 @@ async function extractFrameBase64(input: string, atMs: number, signal?: AbortSig
 }
 
 function fallbackPick(windows: MomentWindow[]): MomentPickResult {
-  const best = windows.reduce((a, b) => (b.score > a.score ? b : a));
+  const best = bestOf(windows);
   return { windowIndex: windows.indexOf(best), reason: describeMomentSignals(best.signals) };
 }
 
