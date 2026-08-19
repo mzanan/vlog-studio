@@ -1,5 +1,6 @@
 import { rm } from 'node:fs/promises';
 import { prisma } from './db';
+import { Prisma } from './generated/prisma/client';
 import { Edl, isValidEdl } from './edl';
 import { Suggestion, isValidSuggestionList } from './suggestions';
 import { projectDir, momentScoresPath } from './paths';
@@ -42,7 +43,13 @@ export async function deleteProject(projectId: string): Promise<boolean> {
 
   await rm(projectDir(projectId), { recursive: true, force: true });
   await rm(momentScoresPath(projectId), { force: true });
-  await prisma.project.delete({ where: { id: projectId } });
+
+  try {
+    await prisma.project.delete({ where: { id: projectId } });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') return false;
+    throw err;
+  }
 
   return true;
 }
