@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Player, PlayerRef } from '@remotion/player';
 import { Loader, Paper } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
@@ -18,8 +18,18 @@ export function EditorPlayer({
   playerRef: React.RefObject<PlayerRef | null>;
   onFrameUpdate?: (frame: number) => void;
 }) {
+  const [playerMounted, setPlayerMounted] = useState(false);
+
+  const setPlayerRef = useCallback(
+    (instance: PlayerRef | null) => {
+      playerRef.current = instance;
+      setPlayerMounted(instance !== null);
+    },
+    [playerRef],
+  );
+
   useEffect(() => {
-    if (!playerRef.current) return;
+    if (!playerMounted || !playerRef.current) return;
     const ref = playerRef.current;
     const frameHandler = (e: { detail: { frame: number } }) =>
       onFrameUpdate?.(e.detail.frame);
@@ -27,7 +37,7 @@ export function EditorPlayer({
       console.error('[Player error]', e.detail.error);
       notifications.show({
         color: 'red',
-        title: 'Error reproduciendo video',
+        title: 'Error playing video',
         message: e.detail.error.message.slice(0, 200),
         autoClose: 10000,
       });
@@ -38,7 +48,7 @@ export function EditorPlayer({
       ref.removeEventListener('frameupdate', frameHandler);
       ref.removeEventListener('error', errorHandler);
     };
-  }, [onFrameUpdate, playerRef, props]);
+  }, [onFrameUpdate, playerRef, playerMounted]);
 
   if (loading || !props) {
     return (
@@ -51,7 +61,7 @@ export function EditorPlayer({
   return (
     <Paper withBorder style={{ overflow: 'hidden' }}>
       <Player
-        ref={playerRef}
+        ref={setPlayerRef}
         component={Vlog}
         inputProps={props}
         durationInFrames={props.totalDurationFrames}
