@@ -1,6 +1,8 @@
+import { rm } from 'node:fs/promises';
 import { prisma } from './db';
 import { Edl, isValidEdl } from './edl';
 import { Suggestion, isValidSuggestionList } from './suggestions';
+import { projectDir, momentScoresPath } from './paths';
 
 export type ProjectEdlAndSuggestions = {
   edl: Edl | null;
@@ -26,4 +28,21 @@ export async function loadProjectPlan(projectId: string): Promise<ProjectEdlAndS
     suggestions: isValidSuggestionList(project.suggestions) ? (project.suggestions as Suggestion[]) : [],
     planVersion: project.planVersion,
   };
+}
+
+export async function renameProject(projectId: string, name: string) {
+  const project = await prisma.project.findUnique({ where: { id: projectId } });
+  if (!project) return null;
+  return prisma.project.update({ where: { id: projectId }, data: { name } });
+}
+
+export async function deleteProject(projectId: string): Promise<boolean> {
+  const project = await prisma.project.findUnique({ where: { id: projectId }, select: { id: true } });
+  if (!project) return false;
+
+  await rm(projectDir(projectId), { recursive: true, force: true });
+  await rm(momentScoresPath(projectId), { force: true });
+  await prisma.project.delete({ where: { id: projectId } });
+
+  return true;
 }

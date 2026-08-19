@@ -4,6 +4,7 @@ import { loadGrouping } from '@/lib/chapters';
 import { loadImportProgress } from '@/lib/chapterImport';
 import { NewProjectButton } from './_components/NewProjectButton';
 import { GenerateChaptersButton } from './_components/GenerateChaptersButton';
+import { ProjectRowActions } from './_components/ProjectRowActions';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +43,7 @@ export default async function Home() {
                 <TableTh>Project</TableTh>
                 <TableTh>Clips</TableTh>
                 <TableTh>Updated</TableTh>
+                <TableTh>Actions</TableTh>
               </TableTr>
             </TableThead>
             <TableTbody>
@@ -52,6 +54,9 @@ export default async function Home() {
                   </TableTd>
                   <TableTd>{p._count.clips}</TableTd>
                   <TableTd>{new Date(p.updatedAt).toLocaleString()}</TableTd>
+                  <TableTd>
+                    <ProjectRowActions projectId={p.id} name={p.name} clipCount={p._count.clips} />
+                  </TableTd>
                 </TableTr>
               ))}
             </TableTbody>
