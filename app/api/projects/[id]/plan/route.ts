@@ -8,7 +8,7 @@ import { LlmEdl, PlanInput, resolveLlmEdl, CutPreset, DEFAULT_CUT_PRESET, isVali
 import { writeLlmLog, summarizeInput, renderedUserMessage } from '@/lib/llm/log';
 import { Edl, buildDefaultEdl, isValidEdl } from '@/lib/edl';
 import { loadProjectPlan } from '@/lib/project';
-import { Suggestion } from '@/lib/suggestions';
+import { Suggestion, autoApplyBrollBestMoments, dropDuplicateAcceptedTrims } from '@/lib/suggestions';
 import { diffEdls, buildSuggestionsFromDiff } from '@/lib/diff-edl';
 import { sampleUserVoiceStyle } from '@/lib/voice-style';
 import { populateMusicSections } from '@/lib/music-search';
@@ -179,14 +179,27 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
     const diff = diffEdls(currentEdl, resolvedLlmEdl);
     const newSuggestions = buildSuggestionsFromDiff(diff);
 
-    // Conservar accepted/rejected anteriores, purgar pending (los reemplazan los nuevos).
-    const keptOlder = (plan?.suggestions ?? []).filter((s) => s.status !== 'pending');
-    const allSuggestions: Suggestion[] = [...keptOlder, ...newSuggestions];
+    const bestMomentByClip = new Map(
+      loaded.input.clips.flatMap((c) =>
+        c.bestMoment ? [[c.id, { inMs: c.bestMoment.inMs, outMs: c.bestMoment.outMs }] as const] : [],
+      ),
+    );
+    const {
+      edl: edlToPersist,
+      pending: pendingSuggestions,
+      autoApplied,
+    } = autoApplyBrollBestMoments(currentEdl, newSuggestions, bestMomentByClip);
+
+    const keptOlder = dropDuplicateAcceptedTrims(
+      (plan?.suggestions ?? []).filter((s) => s.status !== 'pending'),
+      autoApplied,
+    );
+    const allSuggestions: Suggestion[] = [...keptOlder, ...pendingSuggestions, ...autoApplied];
 
     let planVersion: number;
     try {
       planVersion = await updateProjectIfFresh(projectId, expectedPlanVersion, {
-        edl: currentEdl as unknown as Prisma.InputJsonValue,
+        edl: edlToPersist as unknown as Prisma.InputJsonValue,
         suggestions: allSuggestions as unknown as Prisma.InputJsonValue,
       });
     } catch (err) {
@@ -198,7 +211,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
       throw err;
     }
 
-    return Response.json({ edl: currentEdl, suggestions: allSuggestions, generated: newSuggestions.length, planVersion });
+    return Response.json({ edl: edlToPersist, suggestions: allSuggestions, generated: newSuggestions.length, planVersion });
   } catch (err) {
     errorForLog = err instanceof Error ? err.message : String(err);
     return Response.json({ error: errorForLog }, { status: 500 });
