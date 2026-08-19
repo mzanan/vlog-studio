@@ -22,6 +22,12 @@ export type ClipWord = {
 
 export type ClipVisionTag = Pick<VisionTag, 'escena' | 'lugar_tipo' | 'tipo_plano' | 'movimiento' | 'fuerza_visual'>;
 
+export type ClipBestMoment = {
+  inMs: number;
+  outMs: number;
+  reason: string;
+};
+
 export type ClipForPlanning = {
   id: string;
   filename: string;
@@ -29,6 +35,7 @@ export type ClipForPlanning = {
   durationMs: number;
   words: ClipWord[];
   visionTag?: ClipVisionTag;
+  bestMoment?: ClipBestMoment;
 };
 
 export type PlanInput = {
@@ -144,13 +151,13 @@ Devolvés un Edit Decision List intermedio en JSON. Reglas:
 
 ${cutPolicyFor(preset)}
 
-   "broll" (clips b-roll): cortás por inMs/outMs (relativos al clip original) porque no hay transcript. Usalos para cubrir tramos de VO o para transiciones visuales. Igual aplican las reglas de orden.
+   "broll" (clips b-roll): el rango temporal (inMs/outMs) YA está decidido por el sistema con un criterio de mejor-momento (ffmpeg + visión) cuando ese dato está disponible ("mejor momento" en el listado de clips). Vos NO elegís el rango: emití siempre inMs=0, outMs=durationMs para b-roll, el server lo reemplaza por el rango ya decidido. Igual aplican las reglas de orden.
 
-   Si el clip trae un tag de visión (escena, tipo_plano, movimiento, fuerza_visual 1-10), usalo para decidir inMs/outMs y speed:
-   - fuerza_visual 8-10: clip fuerte, dejalo entero (inMs=0, outMs=durationMs) a speed=1.
-   - fuerza_visual 5-7: clip correcto pero no memorable, dejalo entero a speed=1, salvo que dure más de 4s, en cuyo caso podés acelerarlo a speed=1.5.
-   - fuerza_visual 1-4: filler débil, acelerá a speed=2-3 en vez de cortarlo (el user prefiere ver todo el material a que la AI descarte contenido). Solo recortá inMs/outMs si el clip dura más de 8s y sobra relleno evidente en algún extremo.
-   - Sin tag de visión: sin base para decidir, dejalo entero (inMs=0, outMs=durationMs) a speed=1.
+   Sí decidís speed según el tag de visión (escena, tipo_plano, movimiento, fuerza_visual 1-10):
+   - fuerza_visual 8-10: clip fuerte, speed=1.
+   - fuerza_visual 5-7: clip correcto pero no memorable, speed=1, salvo que dure más de 4s, en cuyo caso podés acelerarlo a speed=1.5.
+   - fuerza_visual 1-4: filler débil, acelerá a speed=2-3 (el user prefiere ver todo el material a que la AI descarte contenido).
+   - Sin tag de visión: sin base para decidir, speed=1.
    speed siempre entre 1 y 3.
 
 2. VOICEOVER — UN SOLO script lineal con cues, no fragmentos sueltos:
@@ -225,6 +232,11 @@ function renderVisionTag(tag: ClipVisionTag | undefined): string {
   return `escena="${tag.escena}", lugar=${tag.lugar_tipo}, plano=${tag.tipo_plano}, movimiento=${tag.movimiento}, fuerza_visual=${tag.fuerza_visual}/10`;
 }
 
+function renderBestMoment(bestMoment: ClipBestMoment | undefined): string {
+  if (!bestMoment) return '(sin dato, el rango queda en manos del server, no decidas vos)';
+  return `${bestMoment.inMs}-${bestMoment.outMs}ms, razón: ${bestMoment.reason}`;
+}
+
 export function buildUserMessage(input: PlanInput): string {
   const lines: string[] = [];
   lines.push(`Intent del vlog: ${input.intent || '(sin especificar)'}`);
@@ -254,6 +266,7 @@ export function buildUserMessage(input: PlanInput): string {
     } else {
       lines.push(`transcript: (b-roll, sin habla)`);
       lines.push(`tag de visión: ${renderVisionTag(clip.visionTag)}`);
+      lines.push(`mejor momento (ya decidido por el sistema): ${renderBestMoment(clip.bestMoment)}`);
     }
   }
 
@@ -268,6 +281,18 @@ export function buildUserMessage(input: PlanInput): string {
 //
 // Para clips a-cámara: resuelve keepFromWordIdx/keepToWordIdx a inMs/outMs
 // usando los word-timestamps de Whisper. Para b-roll: usa inMs/outMs directo.
+function brollRangeFor(clip: ClipForPlanning): { inMs: number; outMs: number } {
+  const best = clip.bestMoment;
+  const valid =
+    best !== undefined &&
+    Number.isFinite(best.inMs) &&
+    Number.isFinite(best.outMs) &&
+    best.inMs >= 0 &&
+    best.outMs > best.inMs &&
+    best.outMs <= clip.durationMs;
+  return valid ? { inMs: best.inMs, outMs: best.outMs } : { inMs: 0, outMs: clip.durationMs };
+}
+
 export function resolveLlmEdl(llm: LlmEdl, input: PlanInput): Edl {
   const clipsById = new Map(input.clips.map((c) => [c.id, c]));
   const clipOrder = new Map(input.clips.map((c, i) => [c.id, i]));
@@ -296,8 +321,19 @@ export function resolveLlmEdl(llm: LlmEdl, input: PlanInput): Edl {
           origIdx,
         };
       }
+      const brollClip = clipsById.get(s.clipId);
+      if (!brollClip) return null;
+      const range = brollRangeFor(brollClip);
       return {
-        seg: { id: randomUUID(), kind: 'broll', clipId: s.clipId, inMs: s.inMs, outMs: s.outMs, speed: clampBrollSpeed(s.speed) },
+        seg: {
+          id: randomUUID(),
+          kind: 'broll',
+          clipId: s.clipId,
+          inMs: range.inMs,
+          outMs: range.outMs,
+          cutReason: brollClip.bestMoment?.reason,
+          speed: clampBrollSpeed(s.speed),
+        },
         origIdx,
       };
     })
@@ -318,8 +354,9 @@ export function resolveLlmEdl(llm: LlmEdl, input: PlanInput): Edl {
   const missing = input.clips.filter((c) => !presentClipIds.has(c.id));
   for (const clip of missing) {
     const isACam = clip.words.length > 0;
-    const inMs = isACam ? clip.words[0].startMs : 0;
-    const outMs = isACam ? clip.words[clip.words.length - 1].endMs : clip.durationMs;
+    const brollRange = brollRangeFor(clip);
+    const inMs = isACam ? clip.words[0].startMs : brollRange.inMs;
+    const outMs = isACam ? clip.words[clip.words.length - 1].endMs : brollRange.outMs;
     const seg: EdlClipSegment | EdlBrollSegment = isACam
       ? {
           id: randomUUID(),
@@ -327,9 +364,9 @@ export function resolveLlmEdl(llm: LlmEdl, input: PlanInput): Edl {
           clipId: clip.id,
           inMs,
           outMs,
-          cutReason: '(clip omitido por la AI — reinsertado full-length para que decidas)',
+          cutReason: '(clip omitido por la AI, reinsertado full-length para que decidas)',
         }
-      : { id: randomUUID(), kind: 'broll', clipId: clip.id, inMs, outMs };
+      : { id: randomUUID(), kind: 'broll', clipId: clip.id, inMs, outMs, cutReason: clip.bestMoment?.reason };
     // origIdx fuera del rango original; no se referencia desde cues/music.
     resolved.push({ seg, origIdx: Number.MAX_SAFE_INTEGER });
   }

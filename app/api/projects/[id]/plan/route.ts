@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { Prisma } from '@/lib/generated/prisma/client';
 import { generateEdl, currentProvider, buildManualPrompt, ClipForPlanning } from '@/lib/llm';
 import { loadVisionTags, visionTagForFilename } from '@/lib/chapters';
+import { loadMomentScores, momentScoreForClip, bestWindowFor, describeMomentSignals } from '@/lib/momentScore';
 import { LlmEdl, PlanInput, resolveLlmEdl, CutPreset, DEFAULT_CUT_PRESET, isValidCutPreset } from '@/lib/llm/prompts';
 import { writeLlmLog, summarizeInput, renderedUserMessage } from '@/lib/llm/log';
 import { Edl, buildDefaultEdl, isValidEdl } from '@/lib/edl';
@@ -40,8 +41,24 @@ async function loadPlanInput(projectId: string, cutPreset: CutPreset) {
     visionTags = [];
   }
 
+  let momentScores: Awaited<ReturnType<typeof loadMomentScores>> = [];
+  try {
+    momentScores = await loadMomentScores(projectId);
+  } catch {
+    momentScores = [];
+  }
+
   const clips: ClipForPlanning[] = project.clips.map((c) => {
     const visionTag = c.hasVoice ? undefined : visionTagForFilename(c.filename, visionTags);
+    const momentScore = c.hasVoice ? undefined : momentScoreForClip(c.id, momentScores);
+    const bestWindow = momentScore ? bestWindowFor(momentScore) : undefined;
+    const bestMoment = bestWindow
+      ? {
+          inMs: bestWindow.startMs,
+          outMs: bestWindow.endMs,
+          reason: momentScore?.pick?.reason ?? describeMomentSignals(bestWindow.signals),
+        }
+      : undefined;
     return {
       id: c.id,
       filename: c.filename,
@@ -56,6 +73,7 @@ async function loadPlanInput(projectId: string, cutPreset: CutPreset) {
           }))
         : [],
       visionTag,
+      bestMoment,
     };
   });
 
