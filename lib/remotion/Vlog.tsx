@@ -1,4 +1,4 @@
-import { AbsoluteFill, Audio, OffthreadVideo, Sequence, useCurrentFrame } from 'remotion';
+import { AbsoluteFill, Audio, OffthreadVideo, Sequence } from 'remotion';
 import { MusicSectionProp, SegmentProp, VlogInputProps, VoiceoverProp } from './types';
 
 const CLIP_AUDIO_VOLUME = 1.0;
@@ -88,6 +88,7 @@ function MusicSectionLayer({
       <DuckedMusic
         audioUrl={section.audioUrl}
         baseVolume={section.baseVolume}
+        sectionStartFrame={section.startFrame}
         voiceover={voiceover}
         segments={segments}
       />
@@ -98,27 +99,31 @@ function MusicSectionLayer({
 function DuckedMusic({
   audioUrl,
   baseVolume,
+  sectionStartFrame,
   voiceover,
   segments,
 }: {
   audioUrl: string;
   baseVolume: number;
+  sectionStartFrame: number;
   voiceover: VoiceoverProp;
   segments: SegmentProp[];
 }) {
-  const frame = useCurrentFrame();
-  const inVoCue = voiceover.cues.some((c) => frame >= c.startFrame && frame < c.endFrame);
+  const volumeAt = (f: number) => {
+    const frame = sectionStartFrame + f;
+    const inVoCue = voiceover.cues.some((c) => frame >= c.startFrame && frame < c.endFrame);
 
-  let cursor = 0;
-  let activeKind: SegmentProp['kind'] = 'broll';
-  for (const seg of segments) {
-    if (frame >= cursor && frame < cursor + seg.durationFrames) {
-      activeKind = seg.kind;
-      break;
+    let cursor = 0;
+    let activeKind: SegmentProp['kind'] = 'broll';
+    for (const seg of segments) {
+      if (frame >= cursor && frame < cursor + seg.durationFrames) {
+        activeKind = seg.kind;
+        break;
+      }
+      cursor += seg.durationFrames;
     }
-    cursor += seg.durationFrames;
-  }
-  const isSpeech = activeKind === 'clip';
-  const volume = inVoCue || isSpeech ? baseVolume * MUSIC_DUCK_FACTOR : baseVolume;
-  return <Audio src={audioUrl} volume={volume} />;
+    const isSpeech = activeKind === 'clip';
+    return inVoCue || isSpeech ? baseVolume * MUSIC_DUCK_FACTOR : baseVolume;
+  };
+  return <Audio src={audioUrl} volume={volumeAt} />;
 }
