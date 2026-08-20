@@ -11,7 +11,7 @@ function buildSegmentBlocks(segments: SegmentProp[], width: number, height: numb
   let frameCursor = 0;
   for (const [idx, seg] of segments.entries()) {
     blocks.push(
-      <Sequence key={`seg-${idx}`} from={frameCursor} durationInFrames={seg.durationFrames}>
+      <Sequence key={`seg-${idx}`} from={frameCursor} durationInFrames={seg.durationFrames} premountFor={2 * fps}>
         <SegmentVideo segment={seg} canvasWidth={width} canvasHeight={height} fps={fps} />
       </Sequence>,
     );
@@ -63,6 +63,7 @@ function SegmentVideo({
           endAt={Math.round(segment.trimEndSec * fps)}
           volume={audioVolume}
           playbackRate={segment.playbackRate}
+          pauseWhenBuffering
           style={{ width: '100%', height: '100%' }}
         />
       </div>
