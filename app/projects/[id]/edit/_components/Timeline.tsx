@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ActionIcon, Group, Paper, ScrollArea, Stack, Text, Tooltip } from '@mantine/core';
 import { IconZoomIn, IconZoomOut } from '@tabler/icons-react';
 import { PlayerRef } from '@remotion/player';
-import { Edl, EdlSegment, MusicSection, playbackDurationMs } from '@/lib/edl';
+import { Edl, EdlSegment, MusicSection, formatDurationLabel, playbackDurationMs } from '@/lib/edl';
 import { Suggestion, SuggestionType } from '@/lib/suggestions';
 import { useLocalStorageValue, setLocalStorageValue } from '@/hooks/useLocalStorageValue';
 import { ClipMeta } from './Editor';
@@ -212,6 +212,9 @@ export function Timeline({
             Space play/pause · ←/→ ±5s · shift+←/→ ±10s · click ruler or drag playhead · click empty music zone to insert
           </Text>
           <Group gap={4}>
+            <Text size="xs" c="dimmed">
+              {formatDurationLabel(totalMs)}
+            </Text>
             <Tooltip label="Zoom out" withinPortal>
               <ActionIcon
                 size="sm"
@@ -350,6 +353,7 @@ function Ruler({
   const step = totalSec > 60 ? 10 : totalSec > 30 ? 5 : 2;
   const ticks: number[] = [];
   for (let s = 0; s <= totalSec; s += step) ticks.push(s);
+  if (ticks.length === 0 || totalSec - ticks[ticks.length - 1] > 1) ticks.push(totalSec);
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -382,7 +386,7 @@ function Ruler({
             pointerEvents: 'none',
           }}
         >
-          {s}s
+          {Math.round(s)}s
         </div>
       ))}
     </div>
