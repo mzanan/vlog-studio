@@ -9,7 +9,8 @@
     "start": "next start",
     "test": "vitest run",
     "score-moments": "tsx scripts/score-moments.ts",
-    "pick-moments": "tsx scripts/pick-moments.ts"
+    "pick-moments": "tsx scripts/pick-moments.ts",
+    "reset-broll-speed": "tsx scripts/reset-broll-speed.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",

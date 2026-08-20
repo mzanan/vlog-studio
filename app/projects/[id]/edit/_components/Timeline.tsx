@@ -163,6 +163,16 @@ export function Timeline({
     patchEdl.mutate({ ...edl, segments: newSegments });
   };
 
+  const handleSetSpeed = (segmentItemId: string, speed: number) => {
+    const idx = videoItems.findIndex((it) => it.id === segmentItemId);
+    if (idx < 0) return;
+    const seg = videoItems[idx].seg;
+    if (seg.kind !== 'broll') return;
+    const newSegments = [...edl.segments];
+    newSegments[idx] = { ...seg, speed };
+    patchEdl.mutate({ ...edl, segments: newSegments });
+  };
+
   const [pickerSection, setPickerSection] = useState<SectionMeta | null>(null);
   const [pickerNew, setPickerNew] = useState<NewSectionMeta | null>(null);
   // Se recuerda el key del último target abierto para no cambiarlo al cerrar:
@@ -243,6 +253,7 @@ export function Timeline({
                   suggestions={videoSuggestions}
                   onReorder={handleReorder}
                   onRestoreClip={handleRestoreClip}
+                  onSetSpeed={handleSetSpeed}
                   onAcceptSuggestion={onAcceptSug}
                   onRejectSuggestion={onRejectSug}
                   onChatSuggestion={onChatSuggestion}

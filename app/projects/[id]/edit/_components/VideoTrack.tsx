@@ -1,8 +1,8 @@
 'use client';
 
 import { useMemo } from 'react';
-import { ActionIcon, Group, Text, Tooltip } from '@mantine/core';
-import { IconArrowBackUp, IconEye, IconEyeOff } from '@tabler/icons-react';
+import { ActionIcon, Group, Menu, Text, Tooltip } from '@mantine/core';
+import { IconArrowBackUp, IconEye, IconEyeOff, IconGauge } from '@tabler/icons-react';
 import {
   DndContext,
   DragEndEvent,
@@ -42,6 +42,7 @@ export function VideoTrack({
   suggestions,
   onReorder,
   onRestoreClip,
+  onSetSpeed,
   onAcceptSuggestion,
   onRejectSuggestion,
   onChatSuggestion,
@@ -53,6 +54,7 @@ export function VideoTrack({
   suggestions: Suggestion[];
   onReorder: (newOrder: string[]) => void;
   onRestoreClip: (segmentItemId: string) => void;
+  onSetSpeed: (segmentItemId: string, speed: number) => void;
   onAcceptSuggestion: (id: string) => void;
   onRejectSuggestion: (id: string) => void;
   onChatSuggestion: (id: string) => void;
@@ -116,6 +118,7 @@ export function VideoTrack({
                 filename={clip?.filename ?? item.seg.clipId}
                 fullDurationMs={clip?.durationMs ?? item.seg.outMs}
                 onRestore={() => onRestoreClip(item.id)}
+                onSetSpeed={(speed) => onSetSpeed(item.id, speed)}
                 suggestions={sugs}
                 onAcceptSuggestion={onAcceptSuggestion}
                 onRejectSuggestion={onRejectSuggestion}
@@ -131,11 +134,14 @@ export function VideoTrack({
   );
 }
 
+const BROLL_SPEED_OPTIONS = [1, 1.5, 2, 3];
+
 function SegmentBlock({
   item,
   filename,
   fullDurationMs,
   onRestore,
+  onSetSpeed,
   suggestions,
   onAcceptSuggestion,
   onRejectSuggestion,
@@ -147,6 +153,7 @@ function SegmentBlock({
   filename: string;
   fullDurationMs: number;
   onRestore: () => void;
+  onSetSpeed: (speed: number) => void;
   suggestions: SegmentSuggestions;
   onAcceptSuggestion: (id: string) => void;
   onRejectSuggestion: (id: string) => void;
@@ -292,6 +299,31 @@ function SegmentBlock({
             />
           );
         })}
+
+        {!isClip && (
+          <Menu withinPortal position="bottom-start" shadow="sm">
+            <Menu.Target>
+              <ActionIcon
+                size="xs"
+                variant={brollSpeed !== 1 ? 'filled' : 'subtle'}
+                color={brollSpeed !== 1 ? 'grape' : 'gray'}
+                style={{ position: 'absolute', top: 4, left: 4, zIndex: 2 }}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                aria-label="Set playback speed"
+              >
+                <IconGauge size={12} />
+              </ActionIcon>
+            </Menu.Target>
+            <Menu.Dropdown onPointerDown={(e) => e.stopPropagation()}>
+              {BROLL_SPEED_OPTIONS.map((opt) => (
+                <Menu.Item key={opt} onClick={() => onSetSpeed(opt)} disabled={opt === brollSpeed}>
+                  {opt}x
+                </Menu.Item>
+              ))}
+            </Menu.Dropdown>
+          </Menu>
+        )}
 
         {isTrimmed && (
           <Tooltip label={`Restore full duration (trimmed ${(trimmedMs / 1000).toFixed(1)}s)`} withinPortal>

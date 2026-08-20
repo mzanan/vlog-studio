@@ -6,7 +6,6 @@ import {
   EdlVoiceoverCue,
   Energy,
   MusicSection,
-  clampBrollSpeed,
   defaultBaseVolumeFor,
   estimateVoiceoverDurationMs,
   playbackDurationMs,
@@ -153,12 +152,7 @@ ${cutPolicyFor(preset)}
 
    "broll" (clips b-roll): el rango temporal (inMs/outMs) YA está decidido por el sistema con un criterio de mejor-momento (ffmpeg + visión) cuando ese dato está disponible ("mejor momento" en el listado de clips). Vos NO elegís el rango: emití siempre inMs=0, outMs=durationMs para b-roll, el server lo reemplaza por el rango ya decidido. Igual aplican las reglas de orden.
 
-   Sí decidís speed según el tag de visión (escena, tipo_plano, movimiento, fuerza_visual 1-10):
-   - fuerza_visual 8-10: clip fuerte, speed=1.
-   - fuerza_visual 5-7: clip correcto pero no memorable, speed=1, salvo que dure más de 4s, en cuyo caso podés acelerarlo a speed=1.5.
-   - fuerza_visual 1-4: filler débil, acelerá a speed=2-3 (el user prefiere ver todo el material a que la AI descarte contenido).
-   - Sin tag de visión: sin base para decidir, speed=1.
-   speed siempre entre 1 y 3.
+   La velocidad de reproducción es una decisión del usuario, no tuya: emití siempre speed=1.
 
 2. VOICEOVER — UN SOLO script lineal con cues, no fragmentos sueltos:
    - fullScript: el texto completo que el usuario va a grabar de UNA sola toma. Tiene que fluir, conectar ideas entre clips, sonar natural en el estilo del usuario.
@@ -228,7 +222,7 @@ function renderWordsWithGaps(words: ClipWord[]): string {
 }
 
 function renderVisionTag(tag: ClipVisionTag | undefined): string {
-  if (!tag) return '(sin datos, sin base para decidir, dejalo entero a speed=1)';
+  if (!tag) return '(sin datos)';
   return `escena="${tag.escena}", lugar=${tag.lugar_tipo}, plano=${tag.tipo_plano}, movimiento=${tag.movimiento}, fuerza_visual=${tag.fuerza_visual}/10`;
 }
 
@@ -332,7 +326,7 @@ export function resolveLlmEdl(llm: LlmEdl, input: PlanInput): Edl {
           inMs: range.inMs,
           outMs: range.outMs,
           cutReason: brollClip.bestMoment?.reason,
-          speed: clampBrollSpeed(s.speed),
+          speed: 1,
         },
         origIdx,
       };

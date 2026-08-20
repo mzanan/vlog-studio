@@ -6,7 +6,7 @@ import { loadVisionTags, visionTagForFilename } from '@/lib/chapters';
 import { loadMomentScores, momentScoreForClip, bestWindowFor, describeMomentSignals } from '@/lib/momentScore';
 import { LlmEdl, PlanInput, resolveLlmEdl, CutPreset, DEFAULT_CUT_PRESET, isValidCutPreset } from '@/lib/llm/prompts';
 import { writeLlmLog, summarizeInput, renderedUserMessage } from '@/lib/llm/log';
-import { Edl, buildDefaultEdl, isValidEdl } from '@/lib/edl';
+import { Edl, EdlSegment, buildDefaultEdl, clampBrollSpeed, isValidEdl } from '@/lib/edl';
 import { loadProjectPlan } from '@/lib/project';
 import { Suggestion, autoApplyBrollBestMoments, dropDuplicateAcceptedTrims } from '@/lib/suggestions';
 import { diffEdls, buildSuggestionsFromDiff } from '@/lib/diff-edl';
@@ -240,6 +240,9 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/projects/[
   const expectedPlanVersion = parseExpectedPlanVersion(body);
   if (expectedPlanVersion === null) return Response.json({ error: 'missing expectedPlanVersion' }, { status: 400 });
   const edl = body.edl as Edl;
+  edl.segments = edl.segments.map((s): EdlSegment =>
+    s.kind === 'broll' ? { ...s, speed: clampBrollSpeed(s.speed) } : s,
+  );
   const needsMusicPopulate = edl.music.sections.some((s) => s.query && !s.trackId);
   if (needsMusicPopulate) await populateMusicSections(edl);
   let planVersion: number;
