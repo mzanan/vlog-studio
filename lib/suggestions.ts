@@ -167,16 +167,19 @@ export function autoApplyBrollBestMoments(
   return { edl: result, pending, autoApplied };
 }
 
+function trimSuggestionsMatch(a: Suggestion, b: Suggestion): boolean {
+  if (a.type !== 'trim-segment' || b.type !== 'trim-segment') return false;
+  return (
+    a.data.segmentId === b.data.segmentId &&
+    a.data.newInMs === b.data.newInMs &&
+    a.data.newOutMs === b.data.newOutMs
+  );
+}
+
 export function dropDuplicateAcceptedTrims(older: Suggestion[], autoApplied: Suggestion[]): Suggestion[] {
   return older.filter((s) => {
     if (s.status !== 'accepted' || s.type !== 'trim-segment') return true;
-    return !autoApplied.some(
-      (a) =>
-        a.type === 'trim-segment' &&
-        a.data.segmentId === s.data.segmentId &&
-        a.data.newInMs === s.data.newInMs &&
-        a.data.newOutMs === s.data.newOutMs,
-    );
+    return !autoApplied.some((a) => trimSuggestionsMatch(a, s));
   });
 }
 
@@ -184,13 +187,7 @@ export function dropRejectedDuplicateTrims(older: Suggestion[], pending: Suggest
   const rejectedTrims = older.filter((s) => s.status === 'rejected' && s.type === 'trim-segment');
   return pending.filter((s) => {
     if (s.type !== 'trim-segment') return true;
-    return !rejectedTrims.some(
-      (r) =>
-        r.type === 'trim-segment' &&
-        r.data.segmentId === s.data.segmentId &&
-        r.data.newInMs === s.data.newInMs &&
-        r.data.newOutMs === s.data.newOutMs,
-    );
+    return !rejectedTrims.some((r) => trimSuggestionsMatch(r, s));
   });
 }
 
