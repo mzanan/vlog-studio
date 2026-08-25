@@ -147,7 +147,11 @@ export function autoApplyBrollBestMoments(
     const target = segmentById.get(s.data.segmentId);
     const best = target ? bestMomentByClip.get(target.clipId) : undefined;
     const isBrollBestMoment =
-      target?.kind === 'broll' && !!best && s.data.newInMs === best.inMs && s.data.newOutMs === best.outMs;
+      target?.kind === 'broll' &&
+      !target.userAdjusted &&
+      !!best &&
+      s.data.newInMs === best.inMs &&
+      s.data.newOutMs === best.outMs;
     if (!isBrollBestMoment) {
       pending.push(s);
       continue;
@@ -232,6 +236,7 @@ function applySplitSegment(edl: Edl, p: SplitSegmentPayload): Edl {
       inMs: s.inMs,
       outMs: s.outMs,
       speed: s.speed ?? prev.speed,
+      userAdjusted: prev.userAdjusted,
     };
     return out;
   });

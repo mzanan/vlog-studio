@@ -157,7 +157,7 @@ export function Timeline({
     const restored: EdlSegment =
       seg.kind === 'clip'
         ? { ...seg, inMs: 0, outMs: clip.durationMs, cutReason: '' }
-        : { ...seg, inMs: 0, outMs: clip.durationMs };
+        : { ...seg, inMs: 0, outMs: clip.durationMs, cutReason: undefined, userAdjusted: true };
     const newSegments = [...edl.segments];
     newSegments[idx] = restored;
     patchEdl.mutate({ ...edl, segments: newSegments });

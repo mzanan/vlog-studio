@@ -22,6 +22,7 @@ export type EdlBrollSegment = {
   outMs: number;
   speed?: number;
   cutReason?: string;
+  userAdjusted?: boolean;
 };
 
 export const MIN_BROLL_SPEED = 1;
