@@ -147,7 +147,11 @@ export function autoApplyBrollBestMoments(
     const target = segmentById.get(s.data.segmentId);
     const best = target ? bestMomentByClip.get(target.clipId) : undefined;
     const isBrollBestMoment =
-      target?.kind === 'broll' && !!best && s.data.newInMs === best.inMs && s.data.newOutMs === best.outMs;
+      target?.kind === 'broll' &&
+      !target.userAdjusted &&
+      !!best &&
+      s.data.newInMs === best.inMs &&
+      s.data.newOutMs === best.outMs;
     if (!isBrollBestMoment) {
       pending.push(s);
       continue;
@@ -163,16 +167,27 @@ export function autoApplyBrollBestMoments(
   return { edl: result, pending, autoApplied };
 }
 
+function trimSuggestionsMatch(a: Suggestion, b: Suggestion): boolean {
+  if (a.type !== 'trim-segment' || b.type !== 'trim-segment') return false;
+  return (
+    a.data.segmentId === b.data.segmentId &&
+    a.data.newInMs === b.data.newInMs &&
+    a.data.newOutMs === b.data.newOutMs
+  );
+}
+
 export function dropDuplicateAcceptedTrims(older: Suggestion[], autoApplied: Suggestion[]): Suggestion[] {
   return older.filter((s) => {
     if (s.status !== 'accepted' || s.type !== 'trim-segment') return true;
-    return !autoApplied.some(
-      (a) =>
-        a.type === 'trim-segment' &&
-        a.data.segmentId === s.data.segmentId &&
-        a.data.newInMs === s.data.newInMs &&
-        a.data.newOutMs === s.data.newOutMs,
-    );
+    return !autoApplied.some((a) => trimSuggestionsMatch(a, s));
+  });
+}
+
+export function dropRejectedDuplicateTrims(older: Suggestion[], pending: Suggestion[]): Suggestion[] {
+  const rejectedTrims = older.filter((s) => s.status === 'rejected' && s.type === 'trim-segment');
+  return pending.filter((s) => {
+    if (s.type !== 'trim-segment') return true;
+    return !rejectedTrims.some((r) => trimSuggestionsMatch(r, s));
   });
 }
 
@@ -232,6 +247,7 @@ function applySplitSegment(edl: Edl, p: SplitSegmentPayload): Edl {
       inMs: s.inMs,
       outMs: s.outMs,
       speed: s.speed ?? prev.speed,
+      userAdjusted: prev.userAdjusted,
     };
     return out;
   });

@@ -40,7 +40,7 @@ El rango `inMs/outMs` de cada clip b-roll lo decide el server, nunca el LLM:
 
 1. `npm run score-moments -- <projectId>`: ffmpeg puntúa ventanas candidatas de 2-6s por clip (exposición, nitidez, movimiento, energía de audio, penalización por cortes de escena) y guarda el top-3 en `data/moment-scores/<projectId>.jsonl`. Clips menores a 2s se omiten.
 2. `npm run pick-moments -- <projectId>`: un modelo de visión elige la mejor ventana por contenido y guarda `pick` + razón en el mismo JSONL. Provider por env: `VISION_PICK_PROVIDER` (`ollama` default, `openrouter`) y `VISION_PICK_MODEL`; ante cualquier fallo cae a la ventana de mayor score heurístico.
-3. `/plan` usa esa ventana como `bestMoment`: la propone como sugerencia `trim-segment` con la razón como rationale. Sin moment-scores, el clip queda entero (comportamiento previo).
+3. `/plan` usa esa ventana como `bestMoment`: la propone como sugerencia `trim-segment` con la razón como rationale. Sin moment-scores, el clip queda entero (comportamiento previo). Si el usuario restauró ese segmento desde la timeline (`userAdjusted`), la sugerencia queda pendiente para aceptar o rechazar en vez de aplicarse sola, y un trim ya rechazado con el mismo rango no se vuelve a ofrecer.
 
 Env vars (todas opcionales, defaults actuales):
 
