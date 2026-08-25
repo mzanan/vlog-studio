@@ -180,6 +180,20 @@ export function dropDuplicateAcceptedTrims(older: Suggestion[], autoApplied: Sug
   });
 }
 
+export function dropRejectedDuplicateTrims(older: Suggestion[], pending: Suggestion[]): Suggestion[] {
+  const rejectedTrims = older.filter((s) => s.status === 'rejected' && s.type === 'trim-segment');
+  return pending.filter((s) => {
+    if (s.type !== 'trim-segment') return true;
+    return !rejectedTrims.some(
+      (r) =>
+        r.type === 'trim-segment' &&
+        r.data.segmentId === s.data.segmentId &&
+        r.data.newInMs === s.data.newInMs &&
+        r.data.newOutMs === s.data.newOutMs,
+    );
+  });
+}
+
 export function applySuggestion(edl: Edl, suggestion: Suggestion): Edl {
   switch (suggestion.type) {
     case 'trim-segment':

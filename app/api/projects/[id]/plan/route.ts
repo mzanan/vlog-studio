@@ -8,7 +8,12 @@ import { LlmEdl, PlanInput, resolveLlmEdl, CutPreset, DEFAULT_CUT_PRESET, isVali
 import { writeLlmLog, summarizeInput, renderedUserMessage } from '@/lib/llm/log';
 import { Edl, buildDefaultEdl, isValidEdl } from '@/lib/edl';
 import { loadProjectPlan } from '@/lib/project';
-import { Suggestion, autoApplyBrollBestMoments, dropDuplicateAcceptedTrims } from '@/lib/suggestions';
+import {
+  Suggestion,
+  autoApplyBrollBestMoments,
+  dropDuplicateAcceptedTrims,
+  dropRejectedDuplicateTrims,
+} from '@/lib/suggestions';
 import { diffEdls, buildSuggestionsFromDiff } from '@/lib/diff-edl';
 import { sampleUserVoiceStyle } from '@/lib/voice-style';
 import { populateMusicSections } from '@/lib/music-search';
@@ -194,7 +199,8 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
       (plan?.suggestions ?? []).filter((s) => s.status !== 'pending'),
       autoApplied,
     );
-    const allSuggestions: Suggestion[] = [...keptOlder, ...pendingSuggestions, ...autoApplied];
+    const keptPending = dropRejectedDuplicateTrims(keptOlder, pendingSuggestions);
+    const allSuggestions: Suggestion[] = [...keptOlder, ...keptPending, ...autoApplied];
 
     let planVersion: number;
     try {
