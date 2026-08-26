@@ -2,8 +2,6 @@
 
 AI-assisted vlog editor. Ingesta clips raw → transcribe → propone un EDL con scripts de voice-over → grabás el VO → genera/elige música → exporta MP4 16:9 + Shorts 9:16 con captions quemados.
 
-Plan completo: `~/Documents/projects/personal/personal-brain/01-Projects/01-vlog-studio/plan.md`.
-
 ## Requisitos
 
 - Node 22 (via nvm — hay `.nvmrc`)
