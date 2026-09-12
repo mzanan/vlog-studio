@@ -15,7 +15,7 @@ export default async function ExportPage(props: PageProps<'/projects/[id]/export
     return (
       <Container size="lg" py="xl">
         <Stack gap="md">
-          <Anchor href={`/projects/${id}/music`} size="sm" c="dimmed">← Music</Anchor>
+          <Anchor href={`/projects/${id}/edit`} size="sm" c="dimmed">← Editor</Anchor>
           <Title order={1}>{project.name} — Export</Title>
           <Text c="dimmed">Generate a plan first.</Text>
         </Stack>
@@ -27,7 +27,7 @@ export default async function ExportPage(props: PageProps<'/projects/[id]/export
     <Container size="lg" py="xl">
       <Stack gap="lg">
         <Stack gap={4}>
-          <Anchor href={`/projects/${id}/music`} size="sm" c="dimmed">← Music</Anchor>
+          <Anchor href={`/projects/${id}/edit`} size="sm" c="dimmed">← Editor</Anchor>
           <Title order={1}>{project.name} — Export 16:9</Title>
           <Text c="dimmed" size="sm">
             Renders MP4 1920×1080 H.264 at 30fps. Mixes original clip audio + VO + music (music ducked to 15%).

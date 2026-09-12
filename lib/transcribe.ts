@@ -2,8 +2,8 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { requireWhisperCommand } from './whisper-bin';
 
-const WHISPER_BIN = process.env.WHISPER_BIN ?? 'whisper';
 const TRANSCRIBE_TIMEOUT_MS = 1_800_000;
 
 export type WhisperWord = { word: string; start: number; end: number };
@@ -37,7 +37,15 @@ function runWhisper(audioPath: string, outputDir: string, externalSignal?: Abort
   const timeoutSignal = AbortSignal.timeout(TRANSCRIBE_TIMEOUT_MS);
   const signal = externalSignal ? AbortSignal.any([timeoutSignal, externalSignal]) : timeoutSignal;
   return new Promise<void>((resolve, reject) => {
-    const proc = spawn(WHISPER_BIN, [
+    let whisper: { command: string; args: string[] };
+    try {
+      whisper = requireWhisperCommand();
+    } catch (err) {
+      reject(err);
+      return;
+    }
+    const proc = spawn(whisper.command, [
+      ...whisper.args,
       audioPath,
       '--model', 'turbo',
       '--word_timestamps', 'True',

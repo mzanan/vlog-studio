@@ -18,7 +18,7 @@ import {
 } from '@mantine/core';
 import { IconPlayerPlay, IconPlayerStop, IconSearch } from '@tabler/icons-react';
 import type { JamendoTrack } from '@/lib/music-search';
-import { useApiMutation } from './useApiMutation';
+import { useApiMutation } from '@/hooks/useApiMutation';
 import { requirePlanVersion, syncPlanCache } from '@/lib/plan-version';
 
 export type SectionMeta = {

@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Anchor, Button, Group, List, ListItem, Progress, Stack, Text } from '@mantine/core';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useApiMutation } from '@/app/projects/[id]/edit/_components/useApiMutation';
+import { useApiMutation } from '@/hooks/useApiMutation';
 import type { ChapterImportProgress } from '@/lib/chapterImport';
 
 type ChapterSummary = { title: string; reason: string; clipCount: number };

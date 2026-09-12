@@ -16,7 +16,7 @@ import { requirePlanVersion, syncPlanCache } from '@/lib/plan-version';
 import { showExportResultNotification } from '@/lib/export-notifications';
 import { EditorPlayer } from './EditorPlayer';
 import { Timeline } from './Timeline';
-import { useApiMutation } from './useApiMutation';
+import { useApiMutation } from '@/hooks/useApiMutation';
 import { EditDropzone } from './EditDropzone';
 import { VoRecordModal } from './VoRecordModal';
 import { SuggestionsPanel } from './SuggestionsPanel';
