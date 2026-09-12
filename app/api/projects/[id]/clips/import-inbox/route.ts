@@ -4,12 +4,16 @@ import path from 'node:path';
 import { prisma } from '@/lib/db';
 import { INBOX_DIR, INBOX_IMPORTED_DIR, VIDEO_EXTENSIONS } from '@/lib/paths';
 import { ingestClipFile } from '@/lib/ingest';
+import { whisperUnavailableResponse } from '@/lib/whisper-bin';
 
 export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[id]/clips/import-inbox'>) {
   const { id: projectId } = await ctx.params;
 
   const project = await prisma.project.findUnique({ where: { id: projectId } });
   if (!project) return Response.json({ error: 'project not found' }, { status: 404 });
+
+  const unavailable = whisperUnavailableResponse();
+  if (unavailable) return unavailable;
 
   try {
     await stat(INBOX_DIR);

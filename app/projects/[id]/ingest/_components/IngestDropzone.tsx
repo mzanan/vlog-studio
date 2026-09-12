@@ -3,18 +3,13 @@
 import { useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Dropzone, MIME_TYPES } from '@mantine/dropzone';
+import { Dropzone } from '@mantine/dropzone';
 import { Button, Group, Progress, Stack, Text } from '@mantine/core';
 import { IconFileImport, IconUpload, IconVideo, IconX } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useClipUpload } from '@/hooks/useClipUpload';
-
-const VIDEO_MIME = [
-  MIME_TYPES.mp4,
-  'video/quicktime',
-  'video/x-matroska',
-  'video/webm',
-];
+import { VIDEO_MIME_TYPES } from '@/lib/video-files';
+import { FolderImportButton } from '@/app/_components/FolderImportButton';
 
 export function IngestDropzone({ projectId }: { projectId: string }) {
   const router = useRouter();
@@ -52,7 +47,7 @@ export function IngestDropzone({ projectId }: { projectId: string }) {
         onDrop={(files) => uploadFiles(files)}
         onReject={() => notifications.show({ color: 'red', message: 'File rejected (unsupported type)' })}
         loading={isUploading}
-        accept={VIDEO_MIME}
+        accept={VIDEO_MIME_TYPES}
         multiple
       >
         <Group justify="center" gap="xl" mih={160}>
@@ -60,7 +55,7 @@ export function IngestDropzone({ projectId }: { projectId: string }) {
           <Dropzone.Reject><IconX size={48} /></Dropzone.Reject>
           <Dropzone.Idle><IconVideo size={48} /></Dropzone.Idle>
           <Stack gap={4}>
-            <Text size="lg">Drag clips here or click</Text>
+            <Text size="lg">Drag clips or folders here, or click</Text>
             <Text size="sm" c="dimmed">MP4, MOV, MKV, WebM: uploaded one at a time</Text>
           </Stack>
         </Group>
@@ -74,6 +69,7 @@ export function IngestDropzone({ projectId }: { projectId: string }) {
       )}
 
       <Group justify="flex-end">
+        <FolderImportButton projectId={projectId} size="md" label="Add folders from disk" />
         <Button
           variant="default"
           leftSection={<IconFileImport size={16} />}

@@ -6,9 +6,11 @@ const DEFAULT_PROPS: VlogInputProps = {
   width: 1920,
   height: 1080,
   fps: 30,
+  fit: 'contain',
   segments: [],
   voiceover: { audioUrl: null, cues: [] },
   musicSections: [],
+  captions: [],
   totalDurationFrames: 30,
 };
 

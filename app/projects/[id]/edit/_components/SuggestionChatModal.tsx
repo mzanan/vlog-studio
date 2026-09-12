@@ -15,7 +15,7 @@ import {
 } from '@mantine/core';
 import { IconCheck, IconX, IconSend } from '@tabler/icons-react';
 import { Suggestion, SuggestionType } from '@/lib/suggestions';
-import { useApiMutation } from './useApiMutation';
+import { useApiMutation } from '@/hooks/useApiMutation';
 import { useSuggestionMutations } from './useSuggestionMutations';
 import { requirePlanVersion, syncPlanCache } from '@/lib/plan-version';
 

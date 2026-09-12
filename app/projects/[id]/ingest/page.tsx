@@ -19,11 +19,11 @@ export default async function IngestPage(props: PageProps<'/projects/[id]/ingest
       <Stack gap="lg">
         <Group justify="space-between" align="flex-end">
           <Stack gap={4}>
-            <Anchor href="/" size="sm" c="dimmed">← Proyectos</Anchor>
+            <Anchor href="/" size="sm" c="dimmed">← Projects</Anchor>
             <Title order={1}>{project.name}</Title>
             {project.intent && <Text c="dimmed" size="sm">{project.intent}</Text>}
           </Stack>
-          <Anchor href={`/projects/${id}/plan`}>Plan →</Anchor>
+          <Anchor href={`/projects/${id}/edit`}>Editor →</Anchor>
         </Group>
 
         <IngestDropzone projectId={id} />

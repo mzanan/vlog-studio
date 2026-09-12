@@ -32,13 +32,21 @@ export type MusicSectionProp = {
   durationFrames: number;
 };
 
+export type CaptionProp = {
+  startFrame: number;
+  endFrame: number;
+  text: string;
+};
+
 export type VlogInputProps = {
   width: number;
   height: number;
   fps: number;
+  fit: 'contain' | 'cover';
   segments: SegmentProp[];
   voiceover: VoiceoverProp;
   musicSections: MusicSectionProp[];
+  captions: CaptionProp[];
   totalDurationFrames: number;
 };
 

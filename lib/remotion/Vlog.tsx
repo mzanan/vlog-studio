@@ -1,18 +1,27 @@
 import { AbsoluteFill, Audio, OffthreadVideo, Sequence, useCurrentFrame } from 'remotion';
-import { MusicSectionProp, SegmentProp, VlogInputProps, VoiceoverProp } from './types';
+import { CaptionProp, MusicSectionProp, SegmentProp, VlogInputProps, VoiceoverProp } from './types';
 
 const CLIP_AUDIO_VOLUME = 1.0;
 const BROLL_AUDIO_VOLUME = 0;
 const VO_VOLUME = 1.0;
 const MUSIC_DUCK_FACTOR = 0.5;
+const CAPTION_FONT_RATIO = 0.052;
+const CAPTION_BOTTOM_RATIO_VERTICAL = 0.18;
+const CAPTION_BOTTOM_RATIO_LANDSCAPE = 0.08;
 
-function buildSegmentBlocks(segments: SegmentProp[], width: number, height: number, fps: number) {
+function buildSegmentBlocks(
+  segments: SegmentProp[],
+  width: number,
+  height: number,
+  fps: number,
+  fit: VlogInputProps['fit'],
+) {
   const blocks: React.ReactElement[] = [];
   let frameCursor = 0;
   for (const [idx, seg] of segments.entries()) {
     blocks.push(
       <Sequence key={`seg-${idx}`} from={frameCursor} durationInFrames={seg.durationFrames}>
-        <SegmentVideo segment={seg} canvasWidth={width} canvasHeight={height} fps={fps} />
+        <SegmentVideo segment={seg} canvasWidth={width} canvasHeight={height} fps={fps} fit={fit} />
       </Sequence>,
     );
     frameCursor += seg.durationFrames;
@@ -20,8 +29,17 @@ function buildSegmentBlocks(segments: SegmentProp[], width: number, height: numb
   return blocks;
 }
 
-export function Vlog({ width, height, fps, segments, voiceover, musicSections }: VlogInputProps) {
-  const segmentBlocks = buildSegmentBlocks(segments, width, height, fps);
+export function Vlog({
+  width,
+  height,
+  fps,
+  fit,
+  segments,
+  voiceover,
+  musicSections,
+  captions,
+}: VlogInputProps) {
+  const segmentBlocks = buildSegmentBlocks(segments, width, height, fps, fit);
 
   return (
     <AbsoluteFill style={{ backgroundColor: 'black' }}>
@@ -30,6 +48,54 @@ export function Vlog({ width, height, fps, segments, voiceover, musicSections }:
       {musicSections.map((sec, idx) => (
         <MusicSectionLayer key={`music-${idx}`} section={sec} voiceover={voiceover} segments={segments} />
       ))}
+      <CaptionsLayer captions={captions} width={width} height={height} />
+    </AbsoluteFill>
+  );
+}
+
+function CaptionsLayer({
+  captions,
+  width,
+  height,
+}: {
+  captions: CaptionProp[];
+  width: number;
+  height: number;
+}) {
+  const frame = useCurrentFrame();
+  if (captions.length === 0) return null;
+  const active = captions.find((c) => frame >= c.startFrame && frame < c.endFrame);
+  if (!active) return null;
+
+  const fontSize = Math.round(Math.min(width, height) * CAPTION_FONT_RATIO);
+  const bottomRatio = height > width ? CAPTION_BOTTOM_RATIO_VERTICAL : CAPTION_BOTTOM_RATIO_LANDSCAPE;
+
+  return (
+    <AbsoluteFill
+      style={{
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+        paddingBottom: Math.round(height * bottomRatio),
+        paddingLeft: Math.round(width * 0.08),
+        paddingRight: Math.round(width * 0.08),
+      }}
+    >
+      <span
+        style={{
+          color: 'white',
+          fontFamily: 'Inter, Helvetica, Arial, sans-serif',
+          fontSize,
+          fontWeight: 800,
+          lineHeight: 1.15,
+          textAlign: 'center',
+          textTransform: 'uppercase',
+          WebkitTextStroke: `${Math.max(2, Math.round(fontSize * 0.06))}px black`,
+          paintOrder: 'stroke fill',
+          textShadow: '0 4px 18px rgba(0,0,0,0.55)',
+        }}
+      >
+        {active.text}
+      </span>
     </AbsoluteFill>
   );
 }
@@ -39,13 +105,17 @@ function SegmentVideo({
   canvasWidth,
   canvasHeight,
   fps,
+  fit,
 }: {
   segment: SegmentProp;
   canvasWidth: number;
   canvasHeight: number;
   fps: number;
+  fit: VlogInputProps['fit'];
 }) {
-  const scale = Math.min(canvasWidth / segment.clipWidth, canvasHeight / segment.clipHeight);
+  const scaleX = canvasWidth / segment.clipWidth;
+  const scaleY = canvasHeight / segment.clipHeight;
+  const scale = fit === 'cover' ? Math.max(scaleX, scaleY) : Math.min(scaleX, scaleY);
   const renderedWidth = segment.clipWidth * scale;
   const renderedHeight = segment.clipHeight * scale;
   const left = (canvasWidth - renderedWidth) / 2;
@@ -55,7 +125,7 @@ function SegmentVideo({
   const audioVolume = baseVolume * (segment.audioVolumeMul ?? 1);
 
   return (
-    <AbsoluteFill>
+    <AbsoluteFill style={{ overflow: 'hidden' }}>
       <div style={{ position: 'absolute', left, top, width: renderedWidth, height: renderedHeight }}>
         <OffthreadVideo
           src={segment.videoUrl}

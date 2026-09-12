@@ -1,7 +1,9 @@
 import path from 'node:path';
 import { stat } from 'node:fs/promises';
+import { TranscriptWord, buildCaptions } from './captions';
 import { Edl, clampBrollSpeed, playbackDurationMs } from './edl';
 import { dbToLinear } from './ffmpeg';
+import { DEFAULT_VIDEO_FORMAT, VideoFormat, formatSpecFor } from './format';
 import type { Clip } from './generated/prisma/client';
 import { projectDir } from './paths';
 import { MusicSectionProp, SegmentProp, VlogInputProps, VoiceoverProp } from './remotion/types';
@@ -15,6 +17,8 @@ export type BuildPropsInput = {
   edl: Edl;
   clips: Clip[];
   baseUrl: string;
+  format?: VideoFormat;
+  words?: TranscriptWord[];
 };
 
 function msToFrames(ms: number): number {
@@ -32,9 +36,12 @@ async function fileExists(p: string): Promise<boolean> {
 
 export async function buildVlogProps(input: BuildPropsInput): Promise<VlogInputProps> {
   const { projectId, edl, clips, baseUrl } = input;
+  const format = input.format ?? DEFAULT_VIDEO_FORMAT;
+  const spec = formatSpecFor(format);
   const clipsById = new Map<string, Clip>(clips.map((c) => [c.id, c]));
 
   const segments: SegmentProp[] = [];
+  const segmentFrames: number[] = [];
   let frameCursor = 0;
   for (const seg of edl.segments) {
     const clip = clipsById.get(seg.clipId);
@@ -52,6 +59,7 @@ export async function buildVlogProps(input: BuildPropsInput): Promise<VlogInputP
       clipHeight: clip.height,
       audioVolumeMul: typeof clip.audioGainDb === 'number' ? dbToLinear(clip.audioGainDb) : 1,
     });
+    segmentFrames.push(durationFrames);
     frameCursor += durationFrames;
   }
   const totalDurationFrames = Math.max(1, frameCursor);
@@ -81,13 +89,19 @@ export async function buildVlogProps(input: BuildPropsInput): Promise<VlogInputP
     durationFrames: Math.max(1, msToFrames(sec.endMs) - msToFrames(sec.startMs)),
   }));
 
+  const captions = input.words?.length
+    ? buildCaptions({ segments: edl.segments, segmentFrames, words: input.words, fps: FPS })
+    : [];
+
   return {
-    width: WIDTH,
-    height: HEIGHT,
+    width: spec.width,
+    height: spec.height,
     fps: FPS,
+    fit: spec.fit,
     segments,
     voiceover,
     musicSections,
+    captions,
     totalDurationFrames,
   };
 }

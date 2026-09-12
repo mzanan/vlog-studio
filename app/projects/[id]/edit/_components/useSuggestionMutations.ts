@@ -1,7 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { useApiMutation } from './useApiMutation';
+import { useApiMutation } from '@/hooks/useApiMutation';
 import { requirePlanVersion, syncPlanCache } from '@/lib/plan-version';
 
 export function useSuggestionMutations(projectId: string, onChanged: () => void) {

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert, Badge, Button, Group, Modal, Paper, ScrollArea, Stack, Text } from '@mantine/core';
 import { IconMicrophone, IconPlayerStop, IconTrash } from '@tabler/icons-react';
 import { EdlVoiceover, estimateVoiceoverDurationMs } from '@/lib/edl';
-import { useApiMutation } from './useApiMutation';
+import { useApiMutation } from '@/hooks/useApiMutation';
 
 type RecState = 'idle' | 'recording' | 'recorded';
 

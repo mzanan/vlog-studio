@@ -12,7 +12,7 @@ import { ClipMeta } from './Editor';
 import { VideoTrack, VideoSegmentItem } from './VideoTrack';
 import { MusicTrack } from './MusicTrack';
 import { VoTrack } from './VoTrack';
-import { useApiMutation } from './useApiMutation';
+import { useApiMutation } from '@/hooks/useApiMutation';
 import { useSuggestionMutations } from './useSuggestionMutations';
 import { requirePlanVersion, syncPlanCache } from '@/lib/plan-version';
 import { MusicPickerModal, NewSectionMeta, SectionMeta } from './MusicPickerModal';

@@ -32,3 +32,4 @@ export async function generateChapters(tags: VisionTag[]): Promise<{ chapters: C
 }
 
 export type { PlanInput, ClipForPlanning, CutPreset } from './prompts';
+export { DEFAULT_CUT_PRESET, isValidCutPreset } from './prompts';

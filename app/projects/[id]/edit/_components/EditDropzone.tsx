@@ -1,12 +1,12 @@
 'use client';
 
-import { Dropzone, MIME_TYPES } from '@mantine/dropzone';
+import { Dropzone } from '@mantine/dropzone';
 import { Group, Progress, Stack, Text } from '@mantine/core';
 import { IconUpload, IconVideo, IconX } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useClipUpload } from '@/hooks/useClipUpload';
-
-const VIDEO_MIME = [MIME_TYPES.mp4, 'video/quicktime', 'video/x-matroska', 'video/webm'];
+import { VIDEO_MIME_TYPES } from '@/lib/video-files';
+import { FolderImportButton } from '@/app/_components/FolderImportButton';
 
 export function EditDropzone({ projectId }: { projectId: string }) {
   const { queue, isUploading, uploadFiles } = useClipUpload(projectId);
@@ -18,7 +18,7 @@ export function EditDropzone({ projectId }: { projectId: string }) {
         onDrop={(files) => uploadFiles(files)}
         onReject={() => notifications.show({ color: 'red', message: 'File rejected (unsupported type)' })}
         loading={isUploading}
-        accept={VIDEO_MIME}
+        accept={VIDEO_MIME_TYPES}
         multiple
         p="sm"
       >
@@ -27,11 +27,15 @@ export function EditDropzone({ projectId }: { projectId: string }) {
           <Dropzone.Reject><IconX size={24} /></Dropzone.Reject>
           <Dropzone.Idle><IconVideo size={24} /></Dropzone.Idle>
           <Stack gap={0}>
-            <Text size="sm">Drag more clips here or click</Text>
+            <Text size="sm">Drag more clips or folders here, or click</Text>
             <Text size="xs" c="dimmed">MP4, MOV, MKV, WebM: uploaded one at a time and transcribed automatically</Text>
           </Stack>
         </Group>
       </Dropzone>
+
+      <Group justify="flex-end">
+        <FolderImportButton projectId={projectId} size="xs" />
+      </Group>
 
       {isUploading && queue.length > 0 && (
         <Stack gap={2}>

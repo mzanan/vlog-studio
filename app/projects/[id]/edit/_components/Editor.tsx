@@ -9,21 +9,22 @@ import { PlayerRef } from '@remotion/player';
 import { Edl } from '@/lib/edl';
 import { Suggestion } from '@/lib/suggestions';
 import { PlanResponse } from '@/lib/project';
-import { CutPreset } from '@/lib/llm';
+import { CutPreset, DEFAULT_CUT_PRESET, isValidCutPreset } from '@/lib/llm';
+import { DEFAULT_VIDEO_FORMAT, VideoFormat } from '@/lib/format';
 import { VlogInputProps } from '@/lib/remotion/types';
 import { useLocalStorageValue, setLocalStorageValue } from '@/hooks/useLocalStorageValue';
 import { requirePlanVersion, syncPlanCache } from '@/lib/plan-version';
 import { showExportResultNotification } from '@/lib/export-notifications';
 import { EditorPlayer } from './EditorPlayer';
 import { Timeline } from './Timeline';
-import { useApiMutation } from './useApiMutation';
+import { useApiMutation } from '@/hooks/useApiMutation';
 import { EditDropzone } from './EditDropzone';
 import { VoRecordModal } from './VoRecordModal';
 import { SuggestionsPanel } from './SuggestionsPanel';
 import { SuggestionChatModal } from './SuggestionChatModal';
 
 function parseCutPreset(raw: string | null): CutPreset {
-  return raw === 'conservative' || raw === 'balanced' || raw === 'aggressive' ? raw : 'balanced';
+  return isValidCutPreset(raw) ? raw : DEFAULT_CUT_PRESET;
 }
 
 export type ClipMeta = {
@@ -99,10 +100,15 @@ export function Editor({
   const [previewExcluded, setPreviewExcluded] = useState<string[]>([]);
   const togglePreviewSuggestion = (id: string) =>
     setPreviewExcluded((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  const [previewFormat, setPreviewFormat] = useState<VideoFormat>(DEFAULT_VIDEO_FORMAT);
   const renderPropsQuery = useQuery({
-    queryKey: ['render-props', projectId, previewExcluded],
+    queryKey: ['render-props', projectId, previewExcluded, previewFormat],
     queryFn: async () => {
-      const qs = previewExcluded.length > 0 ? `?exclude=${previewExcluded.join(',')}` : '';
+      const params = new URLSearchParams();
+      if (previewExcluded.length > 0) params.set('exclude', previewExcluded.join(','));
+      if (previewFormat !== DEFAULT_VIDEO_FORMAT) params.set('format', previewFormat);
+      if (previewFormat === 'vertical') params.set('captions', '1');
+      const qs = params.size > 0 ? `?${params.toString()}` : '';
       const res = await fetch(`/api/projects/${projectId}/render-props${qs}`);
       if (!res.ok) return null;
       return (await res.json()).props as VlogInputProps;
@@ -214,8 +220,19 @@ export function Editor({
             { label: 'Conservative', value: 'conservative' },
             { label: 'Balanced', value: 'balanced' },
             { label: 'Aggressive', value: 'aggressive' },
+            { label: 'Shorts', value: 'shorts' },
           ]}
-          title="Conservative: edges only. Balanced: ordinary cleanup. Aggressive: dense cuts for a fast-paced vlog."
+          title="Conservative: edges only. Balanced: ordinary cleanup. Aggressive: dense cuts for a fast-paced vlog. Shorts: under 60s, hook first, drops clips that do not fit."
+        />
+        <SegmentedControl
+          size="sm"
+          value={previewFormat}
+          onChange={(v) => setPreviewFormat(v as VideoFormat)}
+          data={[
+            { label: '16:9', value: 'landscape' },
+            { label: '9:16', value: 'vertical' },
+          ]}
+          title="Preview the timeline center-cropped to vertical, with captions burned in."
         />
         <Indicator
           inline

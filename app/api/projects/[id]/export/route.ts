@@ -3,6 +3,7 @@ import path from 'node:path';
 import { mkdir, readdir, stat } from 'node:fs/promises';
 import { prisma } from '@/lib/db';
 import { isValidEdl, voiceoverFingerprint } from '@/lib/edl';
+import { DEFAULT_VIDEO_FORMAT, formatSlug, isValidVideoFormat } from '@/lib/format';
 import { projectDir } from '@/lib/paths';
 import { buildVlogProps } from '@/lib/render-props';
 import { renderVlog } from '@/lib/render';
@@ -44,18 +45,32 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
   if (!project) return Response.json({ error: 'project not found' }, { status: 404 });
   if (!isValidEdl(project.edl)) return Response.json({ error: 'project without EDL' }, { status: 409 });
 
+  const body = await req.json().catch(() => ({}));
+  const format = isValidVideoFormat(body?.format) ? body.format : DEFAULT_VIDEO_FORMAT;
+  const withCaptions = body?.captions === true;
+
   try {
+    const words = withCaptions
+      ? await prisma.segment.findMany({
+          where: { clip: { projectId } },
+          select: { clipId: true, startMs: true, endMs: true, text: true, wordIndex: true },
+          orderBy: [{ clipId: 'asc' }, { wordIndex: 'asc' }],
+        })
+      : [];
+
     const props = await buildVlogProps({
       projectId,
       edl: project.edl,
       clips: project.clips,
       baseUrl: getBaseUrl(req),
+      format,
+      words,
     });
 
     const dir = exportsDir(projectId);
     await mkdir(dir, { recursive: true });
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `vlog-${timestamp}.mp4`;
+    const filename = `${formatSlug(format)}-${timestamp}.mp4`;
     const outputPath = path.join(dir, filename);
 
     await renderVlog(props, outputPath, req.signal);
@@ -64,6 +79,9 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
     // hay que detectarlo acá y avisar: sin esto el export vuelve 200 con un mp4
     // que parece completo pero le falta narración o música, sin ninguna señal.
     const warnings: string[] = [];
+    if (withCaptions && props.captions.length === 0) {
+      warnings.push('Captions were requested but no transcribed words cover the timeline: the export has no captions.');
+    }
     for (const s of project.edl.music.sections) {
       if (!s.trackId) {
         const startSec = Math.round(s.startMs / 1000);

@@ -1,10 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Anchor, Badge, Button, Card, Group, Loader, Stack, Text } from '@mantine/core';
+import { Anchor, Badge, Button, Card, Group, Loader, SegmentedControl, Stack, Switch, Text } from '@mantine/core';
 import { IconDownload, IconVideo } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { showExportResultNotification } from '@/lib/export-notifications';
+import { DEFAULT_VIDEO_FORMAT, VideoFormat } from '@/lib/format';
 
 type ExportFile = { filename: string; sizeBytes: number; modifiedAt: string };
 
@@ -15,6 +17,8 @@ function fmtSize(bytes: number) {
 
 export function ExportView({ projectId }: { projectId: string }) {
   const qc = useQueryClient();
+  const [format, setFormat] = useState<VideoFormat>(DEFAULT_VIDEO_FORMAT);
+  const [withCaptions, setWithCaptions] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['exports', projectId],
@@ -27,7 +31,11 @@ export function ExportView({ projectId }: { projectId: string }) {
 
   const render = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/projects/${projectId}/export`, { method: 'POST' });
+      const res = await fetch(`/api/projects/${projectId}/export`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ format, captions: withCaptions }),
+      });
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error ?? 'failed');
       return body as { filename: string; durationFrames: number; warnings: string[] };
@@ -57,9 +65,30 @@ export function ExportView({ projectId }: { projectId: string }) {
     <Stack gap="md">
       <Group>
         <Button leftSection={<IconVideo size={16} />} onClick={() => render.mutate()} loading={render.isPending}>
-          Render vlog
+          {format === 'vertical' ? 'Render short' : 'Render vlog'}
         </Button>
+        <SegmentedControl
+          size="sm"
+          value={format}
+          onChange={(v) => setFormat(v as VideoFormat)}
+          data={[
+            { label: '16:9', value: 'landscape' },
+            { label: '9:16', value: 'vertical' },
+          ]}
+          title="9:16 center-crops every clip to vertical for TikTok, Reels and Shorts."
+        />
+        <Switch
+          size="sm"
+          checked={withCaptions}
+          onChange={(e) => setWithCaptions(e.currentTarget.checked)}
+          label="Burn captions"
+        />
       </Group>
+      {withCaptions && (
+        <Text size="xs" c="dimmed">
+          Captions come from the transcribed words of to-camera clips. B-roll and voiceover have no transcript, so they stay uncaptioned.
+        </Text>
+      )}
 
       {isLoading ? (
         <Loader />

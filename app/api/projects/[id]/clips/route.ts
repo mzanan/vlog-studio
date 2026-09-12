@@ -8,6 +8,7 @@ import { ffprobe, generateThumbnail, normalizeClip } from '@/lib/ffmpeg';
 import { enqueueTranscribe } from '@/lib/transcribeQueue';
 import { runHeavy } from '@/lib/heavyQueue';
 import { streamRequestBodyToFile } from '@/lib/upload';
+import { whisperUnavailableResponse } from '@/lib/whisper-bin';
 
 export async function GET(_req: NextRequest, ctx: RouteContext<'/api/projects/[id]/clips'>) {
   const { id } = await ctx.params;
@@ -23,6 +24,9 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/projects/[i
 
   const project = await prisma.project.findUnique({ where: { id: projectId } });
   if (!project) return Response.json({ error: 'project not found' }, { status: 404 });
+
+  const unavailable = whisperUnavailableResponse();
+  if (unavailable) return unavailable;
 
   const rawName = req.headers.get('x-filename');
   if (!rawName) return Response.json({ error: 'falta header x-filename' }, { status: 400 });

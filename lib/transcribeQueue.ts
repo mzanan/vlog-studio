@@ -4,6 +4,16 @@ import { runHeavy } from './heavyQueue';
 
 const inFlight = new Set<string>();
 
+export async function retryTranscribe(clipIds: string[]): Promise<number> {
+  if (clipIds.length === 0) return 0;
+  await prisma.clip.updateMany({
+    where: { id: { in: clipIds } },
+    data: { transcribeError: null, transcribedAt: null },
+  });
+  for (const clipId of clipIds) enqueueTranscribe(clipId);
+  return clipIds.length;
+}
+
 export function enqueueTranscribe(clipId: string) {
   if (inFlight.has(clipId)) return;
   inFlight.add(clipId);

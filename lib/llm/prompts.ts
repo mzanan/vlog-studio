@@ -90,8 +90,8 @@ export type LlmEdl = {
   music: { sections: LlmMusicSection[] };
 };
 
-export type CutPreset = 'conservative' | 'balanced' | 'aggressive';
-export const CUT_PRESETS: CutPreset[] = ['conservative', 'balanced', 'aggressive'];
+export type CutPreset = 'conservative' | 'balanced' | 'aggressive' | 'shorts';
+export const CUT_PRESETS: CutPreset[] = ['conservative', 'balanced', 'aggressive', 'shorts'];
 export const DEFAULT_CUT_PRESET: CutPreset = 'balanced';
 export function isValidCutPreset(value: unknown): value is CutPreset {
   return typeof value === 'string' && (CUT_PRESETS as string[]).includes(value);
@@ -125,10 +125,27 @@ const CUT_POLICY_AGGRESSIVE = `   POLÍTICA DE CORTES — AGRESIVO (el user quie
    - Si querés sacar tramos del medio, emití múltiples segments del mismo clipId CONSECUTIVOS (mismo formato que en balanceado).
    - cutReason: razón editorial breve. Ejemplos: "tangente sin retorno", "muletilla 'o sea'", "pausa muerta", "frase abandonada", "duplica info previa".`;
 
+const CUT_POLICY_SHORTS = `   POLÍTICA DE CORTES: SHORT VERTICAL (el user quiere un short de 15-60s para TikTok/Reels):
+   - El total tiene que entrar en 60 segundos. Es un límite duro.
+   - Cada clip aporta 2-3 segundos. Excepción: el tramo de demo o de producto, que dura lo que haga falta para que se entienda.
+   - **El gancho manda**: el primer segment que emitas tiene que ser el momento más fuerte del PRIMER clip del input, sin introducción ni contexto previo. Los primeros 2-3 segundos deciden la retención.
+   - Mantené el orden de entrada de los clips: el server lo reordena igual si lo rompés.
+   - Sacá todo lo demás: muletillas, pausas > 300ms, repeticiones, arranques fallidos, tangentes, saludos y despedidas.
+   - **Podés descartar clips enteros** que no aporten al gancho ni a la demo. Es la única política sin cobertura obligatoria: acá el server no los reinserta.
+   - cutReason: por qué ese tramo entra en el short. Ejemplos: "gancho, la frase más fuerte", "demo del producto", "remate".`;
+
 function cutPolicyFor(preset: CutPreset): string {
   if (preset === 'conservative') return CUT_POLICY_CONSERVATIVE;
   if (preset === 'aggressive') return CUT_POLICY_AGGRESSIVE;
+  if (preset === 'shorts') return CUT_POLICY_SHORTS;
   return CUT_POLICY_BALANCED;
+}
+
+const COVERAGE_RULE_FULL = `   - **TODOS los clips del input tienen que aparecer en el output al menos una vez.** No descartes clips. El user decide después si lo deja o no. Tu rol es sugerir, no imponer.`;
+const COVERAGE_RULE_SHORTS = `   - **No rige la cobertura total.** Quedate sólo con los clips que aporten al gancho o a la demo; los que no entran en 60 segundos se descartan.`;
+
+function coverageRuleFor(preset: CutPreset): string {
+  return preset === 'shorts' ? COVERAGE_RULE_SHORTS : COVERAGE_RULE_FULL;
 }
 
 export function buildPlannerSystem(preset: CutPreset = DEFAULT_CUT_PRESET): string {
@@ -145,7 +162,7 @@ Devolvés un Edit Decision List intermedio en JSON. Reglas:
 1. SEGMENTS — REGLA DE ORDEN ESTRICTA Y DE COBERTURA:
    - **Respetá el orden de entrada de los clips. NO reordenes.** Si en el input vienen [clipA, clipB, clipC], en tu output todos los segments de clipA van antes que cualquier segment de clipB, y todos los de clipB antes que cualquier segment de clipC.
    - **NUNCA intercales segments de clips distintos.** Si emitís múltiples segments del mismo clipId, tienen que aparecer CONSECUTIVOS en el output.
-   - **TODOS los clips del input tienen que aparecer en el output al menos una vez.** No descartes clips. El user decide después si lo deja o no. Tu rol es sugerir, no imponer.
+${coverageRuleFor(preset)}
 
    "clip" (clips a-cámara): cortás por índice de palabra. keepFromWordIdx y keepToWordIdx son INCLUSIVOS y refieren a la numeración [N] del transcript.
 
@@ -351,7 +368,9 @@ export function resolveLlmEdl(llm: LlmEdl, input: PlanInput): Edl {
   // Safety net 2: si el LLM descartó un clip entero, lo agregamos full-length en su
   // posición de orden esperada. La AI sugiere; no impone. El user decide después.
   const presentClipIds = new Set(resolved.map((r) => r.seg.clipId));
-  const missing = input.clips.filter((c) => !presentClipIds.has(c.id));
+  const missing = input.cutPreset === 'shorts'
+    ? []
+    : input.clips.filter((c) => !presentClipIds.has(c.id));
   for (const clip of missing) {
     const isACam = clip.words.length > 0;
     const brollRange = brollRangeFor(clip);
